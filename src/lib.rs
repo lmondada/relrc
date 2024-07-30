@@ -5,8 +5,8 @@ mod edge;
 mod node;
 
 pub use edge::Edge;
-pub use node::Node;
+pub use node::RelRc;
 
 // Weak references are not exported publicly.
 pub(crate) use edge::WeakEdge;
-pub(crate) use node::WeakNode;
+pub(crate) use node::RelWeak;

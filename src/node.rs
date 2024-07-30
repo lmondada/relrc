@@ -6,91 +6,149 @@ use std::{
 
 use derive_more::From;
 
-use crate::{edge::EdgeData, Edge, WeakEdge};
+use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 
-/// A node in a directed acylic graph.
+/// A single-threaded reference-counted pointer, optionally with relationships
+/// to other [`RelRc`] objects.
+///
+/// A new [`RelRc`] object is created with either
+///  - [`RelRc::new`]: behaves identically to [`Rc::new`], or
+///  - [`RelRc::with_parents`]: creates a new [`RelRc`] object, with a list of
+///    parent [`RelRc`] objects.
+///
+/// A [`RelRc`] object will remain in memory for as long as there is at least
+/// one strong reference to it or to one of its descendants.
+///
+/// ## Immutability
+/// Just like [`Rc`], [`RelRc`] objects are immutable. Once a [`RelRc`] object
+/// is created, both its value as well as its parents cannot be changed. Children
+/// can however always be added (and removed when falling out of scope).
 #[derive(Debug)]
-pub struct Node<N, E>(Rc<NodeData<N, E>>);
+pub struct RelRc<N, E>(Rc<InnerData<N, E>>);
 
-impl<N, E> Clone for Node<N, E> {
+impl<N, E> Clone for RelRc<N, E> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<N, E> Node<N, E> {
-    /// Create a new node with no parents.
+impl<N, E> RelRc<N, E> {
+    /// Create a new [`RelRc<N, E>`] with no parents.
     pub fn new(value: N) -> Self {
-        Self(Rc::new(NodeData::new(value)))
+        Self(Rc::new(InnerData::new(value)))
     }
 
-    /// Create a new node with a list of incoming edges.
+    /// Create a new [`RelRc<N, E>`] with the given list of parent objects.
     ///
-    /// Incoming edges are given by a parent [`Node`] and its corresponding edge
-    /// weight. The order of the incoming edges is preserved.
-    pub fn with_incoming(value: N, incoming: impl IntoIterator<Item = (Node<N, E>, E)>) -> Self {
-        let node = Node(Rc::new_cyclic(|weak_node| {
-            let weak_node: WeakNode<N, E> = weak_node.clone().into();
-            let incoming = incoming
+    /// The parents must be given by an object [`RelRc<N, E>`] and its
+    /// corresponding edge value. The order of the parents is guaranteed to
+    /// never change.
+    pub fn with_parents(value: N, parents: impl IntoIterator<Item = (RelRc<N, E>, E)>) -> Self {
+        let node = RelRc(Rc::new_cyclic(|weak_node| {
+            let weak_node: RelWeak<N, E> = weak_node.clone().into();
+            let incoming = parents
                 .into_iter()
-                .map(|(parent, edge_value)| EdgeData::new(edge_value, parent, weak_node.clone()))
+                .map(|(parent, edge_value)| {
+                    InnerEdgeData::new(edge_value, parent, weak_node.clone())
+                })
                 .collect();
-            NodeData::with_incoming(value, incoming)
+            InnerData::with_incoming(value, incoming)
         }));
         register_outgoing_edges(&node.incoming);
         node
     }
+
+    /// Get a raw pointer to the underlying data.
+    ///
+    /// This is a low-level function that returns a raw pointer to the
+    /// underlying data. The pointer is valid as long as at least one reference
+    /// to the data exists.
+    pub fn as_ptr(this: &Self) -> *const InnerData<N, E> {
+        Rc::as_ptr(&this.0)
+    }
+
+    /// Unwrap the pointer, returning the value if `self` was the only owner.
+    ///
+    /// Returns an Err with `self` if there is more than one owner.
+    pub fn try_unwrap(this: Self) -> Result<N, Self> {
+        match Rc::try_unwrap(this.0) {
+            Ok(data) => Ok(data.value),
+            Err(data) => Err(RelRc(data)),
+        }
+    }
+
+    /// Check if two pointers point to the same underlying data by comparing their
+    /// raw pointers.
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        Rc::ptr_eq(&this.0, &other.0)
+    }
 }
 
-/// A weak reference to a node.
+/// A weak reference to a [`RelRc`] object.
 ///
-/// Upgrades to [`Node`] if the reference is valid.
+/// Upgrades to [`RelRc`] if the reference is valid.
 #[derive(Debug, From)]
-pub(crate) struct WeakNode<N, E>(Weak<NodeData<N, E>>);
+pub(crate) struct RelWeak<N, E>(Weak<InnerData<N, E>>);
 
-impl<N, E> Clone for WeakNode<N, E> {
+impl<N, E> Clone for RelWeak<N, E> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<N, E> WeakNode<N, E> {
+impl<N, E> RelWeak<N, E> {
     /// Upgrades to a [`Node`] if the reference is still valid.
-    pub fn upgrade(&self) -> Option<Node<N, E>> {
-        self.0.upgrade().map(Node)
+    pub fn upgrade(&self) -> Option<RelRc<N, E>> {
+        self.0.upgrade().map(RelRc)
     }
 }
 
-/// A node in a directed acyclic graph. Always wrapped in an Rc.
+/// Data within a [`RelRc`] object.
 ///
-/// Keeps references to its incident edges. References to incoming edges are
-/// strong references, i.e. the edges will exist as long as the node exists.
-/// References to outgoing edges on the other hand are weak references, thus
-/// they may get deleted if all downstream nodes have been deleted.
+/// Keeps track of its incident edges. Sole owner of the incoming edges, i.e. the
+/// edges will exist if and only if the node exists. References to outgoing edges
+/// are weak references, thus they may get deleted if all downstream nodes have
+/// been deleted.
 #[derive(Debug)]
-pub struct NodeData<N, E> {
+pub struct InnerData<N, E> {
     /// The value of the node.
     value: N,
-    /// The incoming edges to the node (strong references).
+    /// The incoming edges to the object.
     ///
     /// The ordering and position of the incoming edges is immutable.
-    incoming: Vec<EdgeData<N, E>>,
-    /// The outgoing edges from the node (weak references).
+    incoming: Vec<InnerEdgeData<N, E>>,
+    /// The outgoing edges from the object (weak references).
     ///
     /// The order and position of the outgoing edges may change at any time, as
     /// the edges may get deleted.
     outgoing: RefCell<Vec<WeakEdge<N, E>>>,
 }
 
-impl<N, E> Deref for Node<N, E> {
-    type Target = NodeData<N, E>;
+impl<N, E> Deref for RelRc<N, E> {
+    type Target = InnerData<N, E>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<N, E> NodeData<N, E> {
+impl<N: Default, E> Default for InnerData<N, E> {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            incoming: Vec::new(),
+            outgoing: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl<N: Default, E> Default for RelRc<N, E> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
+impl<N, E> InnerData<N, E> {
     pub(crate) fn new(value: N) -> Self {
         Self {
             value,
@@ -99,7 +157,7 @@ impl<N, E> NodeData<N, E> {
         }
     }
 
-    pub(crate) fn with_incoming(value: N, incoming: Vec<EdgeData<N, E>>) -> Self {
+    pub(crate) fn with_incoming(value: N, incoming: Vec<InnerEdgeData<N, E>>) -> Self {
         Self {
             value,
             incoming,
@@ -108,17 +166,22 @@ impl<N, E> NodeData<N, E> {
     }
 
     /// The i-th incoming edge to the node.
-    pub fn incoming(&self, index: usize) -> Option<&EdgeData<N, E>> {
+    pub fn incoming(&self, index: usize) -> Option<&InnerEdgeData<N, E>> {
         self.incoming.get(index)
     }
 
-    /// The node weight.
+    /// The i-th parent of the object.
+    pub fn parent(&self, index: usize) -> Option<&RelRc<N, E>> {
+        self.incoming.get(index).map(|e| e.source())
+    }
+
+    /// The value of the object, also obtainable with [`Deref`].
     pub fn value(&self) -> &N {
         &self.value
     }
 
     /// All incoming edges as a slice.
-    pub fn all_incoming(&self) -> &[EdgeData<N, E>] {
+    pub fn all_incoming(&self) -> &[InnerEdgeData<N, E>] {
         &self.incoming
     }
 
@@ -143,13 +206,20 @@ impl<N, E> NodeData<N, E> {
         edges
     }
 
+    /// Iterate over all children of the object.
+    ///
+    /// The children are the objects that have an incoming edge from the object.
+    pub fn all_children(&self) -> impl Iterator<Item = RelRc<N, E>> {
+        self.all_outgoing().into_iter().map(|e| e.into_target())
+    }
+
     /// The number of outgoing edges.
     pub fn n_outgoing(&self) -> usize {
         self.all_outgoing().len()
     }
 }
 
-fn register_outgoing_edges<N, E>(incoming: &[EdgeData<N, E>]) {
+fn register_outgoing_edges<N, E>(incoming: &[InnerEdgeData<N, E>]) {
     for (i, edge) in incoming.iter().enumerate() {
         edge.source().outgoing.borrow_mut().push(edge.downgrade(i));
     }

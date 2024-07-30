@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rc_dag"
+name = "relrc"
 version = "0.1.0"
 dependencies = [
  "derive_more",
