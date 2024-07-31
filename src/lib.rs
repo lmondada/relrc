@@ -1,9 +1,11 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
-mod edge;
-mod node;
+pub mod ancestor_graph;
+pub mod edge;
+pub mod node;
 
+pub use ancestor_graph::{AncestorGraph, EdgeId, NodeId};
 pub use edge::Edge;
 pub use node::RelRc;
 
