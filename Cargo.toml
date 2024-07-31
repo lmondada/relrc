@@ -8,3 +8,7 @@ license = "Apache-2.0"
 
 [dependencies]
 derive_more = "0.99.18"
+petgraph = { version = "0.6.5", optional = true }
+
+[features]
+petgraph = ["dep:petgraph"]

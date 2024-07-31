@@ -1,5 +1,7 @@
+//! Reference-counted pointers.
+
 use std::{
-    cell::RefCell,
+    cell::{Ref, RefCell},
     ops::Deref,
     rc::{Rc, Weak},
 };
@@ -100,6 +102,14 @@ impl<N, E> RelWeak<N, E> {
     /// Upgrades to a [`Node`] if the reference is still valid.
     pub fn upgrade(&self) -> Option<RelRc<N, E>> {
         self.0.upgrade().map(RelRc)
+    }
+
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        Weak::ptr_eq(&this.0, &other.0)
+    }
+
+    pub fn as_ptr(this: &Self) -> *const InnerData<N, E> {
+        Weak::as_ptr(&this.0)
     }
 }
 
@@ -206,11 +216,25 @@ impl<N, E> InnerData<N, E> {
         edges
     }
 
+    pub(crate) fn all_outgoing_weak(&self) -> Ref<[WeakEdge<N, E>]> {
+        Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
+    }
+
     /// Iterate over all children of the object.
     ///
     /// The children are the objects that have an incoming edge from the object.
     pub fn all_children(&self) -> impl Iterator<Item = RelRc<N, E>> {
         self.all_outgoing().into_iter().map(|e| e.into_target())
+    }
+
+    /// Iterate over all parents of the object.
+    pub fn all_parents(&self) -> impl Iterator<Item = &RelRc<N, E>> {
+        self.all_incoming().iter().map(|e| e.source())
+    }
+
+    /// The number of incoming edges.
+    pub fn n_incoming(&self) -> usize {
+        self.incoming.len()
     }
 
     /// The number of outgoing edges.

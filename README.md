@@ -28,8 +28,6 @@ be modified once it has been created and will exist until all references to
 it are dropped.
 
 This ensures that no cycles can be created, removing the need for cyclicity checks and guaranteeing the absence of memory leaks.
-Another consequence of this design decision is that all DAGs will have a single
-source, from which all descending nodes can be reached.
 If node or edge values need to be mutable, consider using `RefCell`s.
 
 ### Example

@@ -1,3 +1,5 @@
+//! Parent-child relationships between [`RelRc`] objects.
+
 use std::ops::Deref;
 
 use crate::{RelRc, RelWeak};
@@ -14,15 +16,15 @@ use crate::{RelRc, RelWeak};
 #[derive(Debug)]
 pub struct InnerEdgeData<N, E> {
     /// The value of the edge.
-    value: E,
+    pub(crate) value: E,
     /// The source (parent) of the edge (strong reference).
-    source: RelRc<N, E>,
+    pub(crate) source: RelRc<N, E>,
     /// The target (child) of the edge.
     ///
     /// This is a weak reference to avoid reference loops between the edge and
     /// the target node. However, the target is always the owner of the edge,
     /// so this reference can always be upgraded.
-    target: RelWeak<N, E>,
+    pub(crate) target: RelWeak<N, E>,
 }
 
 impl<N, E> InnerEdgeData<N, E> {
@@ -76,14 +78,27 @@ impl<N, E> InnerEdgeData<N, E> {
 #[derive(Debug)]
 pub(crate) struct WeakEdge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
-    index: usize,
+    pub(crate) index: usize,
     /// The target node (and owner) of the edge.
-    target: RelWeak<N, E>,
+    pub(crate) target: RelWeak<N, E>,
 }
 
 impl<N, E> WeakEdge<N, E> {
     pub(crate) fn new(index: usize, target: RelWeak<N, E>) -> Self {
         Self { index, target }
+    }
+
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        RelWeak::ptr_eq(&this.target, &other.target)
+    }
+}
+
+impl<N, E> Clone for WeakEdge<N, E> {
+    fn clone(&self) -> Self {
+        Self {
+            index: self.index,
+            target: self.target.clone(),
+        }
     }
 }
 

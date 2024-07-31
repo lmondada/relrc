@@ -4,6 +4,8 @@
 pub mod ancestor_graph;
 pub mod edge;
 pub mod node;
+#[cfg(feature = "petgraph")]
+pub mod petgraph;
 
 pub use ancestor_graph::{AncestorGraph, EdgeId, NodeId};
 pub use edge::Edge;
