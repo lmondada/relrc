@@ -1,7 +1,9 @@
 //! Reference-counted pointers.
 
+#[cfg(feature = "petgraph")]
+use std::cell::Ref;
 use std::{
-    cell::{Ref, RefCell},
+    cell::RefCell,
     ops::Deref,
     rc::{Rc, Weak},
 };
@@ -216,6 +218,7 @@ impl<N, E> InnerData<N, E> {
         edges
     }
 
+    #[cfg(feature = "petgraph")]
     pub(crate) fn all_outgoing_weak(&self) -> Ref<[WeakEdge<N, E>]> {
         Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
     }

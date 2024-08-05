@@ -194,19 +194,6 @@ impl<N, E> GraphView<N, E> {
     }
 }
 
-fn all_indices<I: IntoIterator>(items: impl IntoIterator<Item = I>) -> BTreeMap<I::Item, Vec<usize>>
-where
-    I::Item: Ord,
-{
-    let mut counts = BTreeMap::new();
-    for (i, item) in items.into_iter().enumerate() {
-        for node in item {
-            counts.entry(node).or_insert(vec![]).push(i);
-        }
-    }
-    counts
-}
-
 /// A node identifier in an [`AncestorGraph`].
 #[derive(From, Into)]
 pub struct NodeId<N, E>(pub(crate) *const InnerData<N, E>);
