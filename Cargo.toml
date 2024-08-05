@@ -9,6 +9,15 @@ license = "Apache-2.0"
 [dependencies]
 derive_more = "0.99.18"
 petgraph = { version = "0.6.5", optional = true }
+serde = { version = "1.0.204", optional = true, features = ["derive"] }
+thiserror = "1.0.63"
 
 [features]
 petgraph = ["dep:petgraph"]
+serde = ["dep:serde"]
+
+[dev-dependencies]
+insta = "1.39.0"
+itertools = "0.13.0"
+rstest = "0.22.0"
+serde_json = "1.0.122"

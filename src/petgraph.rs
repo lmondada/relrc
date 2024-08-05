@@ -1,12 +1,14 @@
 //! Implementation of the [`petgraph`] graph traits
 
 mod edge_ref;
+use std::collections::HashSet;
+
 pub use edge_ref::EdgeRef;
 
 use petgraph::{
     visit::{
         Data, GraphBase, GraphRef, IntoEdgeReferences, IntoEdges, IntoEdgesDirected, IntoNeighbors,
-        IntoNeighborsDirected,
+        IntoNeighborsDirected, IntoNodeIdentifiers, Visitable,
     },
     Direction,
 };
@@ -58,6 +60,14 @@ impl<'a, N, E> IntoEdgeReferences for &'a GraphView<N, E> {
     }
 }
 
+impl<'a, N, E> IntoNodeIdentifiers for &'a GraphView<N, E> {
+    type NodeIdentifiers = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
+
+    fn node_identifiers(self) -> Self::NodeIdentifiers {
+        Box::new(self.all_nodes().iter().copied())
+    }
+}
+
 impl<'a, N, E> IntoEdges for &'a GraphView<N, E> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
@@ -88,5 +98,19 @@ impl<'a, N, E> IntoEdgesDirected for &'a GraphView<N, E> {
                 (0..node.n_incoming()).map(move |i| unsafe { EdgeRef::new_unchecked(node_id, i) }),
             ),
         }
+    }
+}
+
+impl<'a, N, E> Visitable for &'a GraphView<N, E> {
+    type Map = HashSet<NodeId<N, E>>;
+
+    #[doc = r" Create a new visitor map"]
+    fn visit_map(self: &Self) -> Self::Map {
+        HashSet::new()
+    }
+
+    #[doc = r" Reset the visitor map (and resize to new size of graph if needed)"]
+    fn reset_map(self: &Self, map: &mut Self::Map) {
+        map.clear();
     }
 }

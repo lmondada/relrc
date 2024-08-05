@@ -3,11 +3,17 @@
 //! [`AncestorGraph`]s are views into a set of nodes and all their predecessors.
 //! The easiest way to traverse these graphs is using the `petgraph` traits by
 //! activating the `petgraph` feature of this crate.
+
+#[cfg(feature = "serde")]
+mod serde;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{node::InnerData, RelRc};
+use std::hash::Hash;
 
 use derive_more::{From, Into};
+#[cfg(feature = "petgraph")]
 use petgraph::visit::IntoEdges;
 
 /// View a set of [`RelRc`]s as a graph.
@@ -123,6 +129,7 @@ impl<N, E> GraphView<N, E> {
     ///
     /// The lowest common ancestor of two nodes is the deepest node that is an
     /// ancestor of both nodes.
+    #[cfg(feature = "petgraph")]
     pub fn lowest_common_ancestors<'a>(
         graphs: &'a [Self],
     ) -> impl Iterator<Item = NodeId<N, E>> + 'a
@@ -235,6 +242,12 @@ impl<N, E> Copy for NodeId<N, E> {}
 impl<N, E> Clone for NodeId<N, E> {
     fn clone(&self) -> Self {
         *self
+    }
+}
+
+impl<N, E> Hash for NodeId<N, E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 

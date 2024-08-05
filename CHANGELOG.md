@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GraphView::from_sources` to create a `GraphView` for all descendants.
 - `GraphView::merge` to merge two `GraphView`s.
 - `GraphView::lowest_common_ancestors` to find the lowest common ancestors of `GraphView`s.
+- `GraphView` serialization (activate `serde` feature).
 
 ### Changed
 - `AncestorGraph` is now called `GraphView`
