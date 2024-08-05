@@ -1,14 +1,14 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
-pub mod ancestor_graph;
 pub mod edge;
+pub mod graph_view;
 pub mod node;
 #[cfg(feature = "petgraph")]
 pub mod petgraph;
 
-pub use ancestor_graph::{AncestorGraph, EdgeId, NodeId};
 pub use edge::Edge;
+pub use graph_view::{EdgeId, GraphView, NodeId};
 pub use node::RelRc;
 
 // Weak references are not exported publicly.

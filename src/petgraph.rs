@@ -11,16 +11,16 @@ use petgraph::{
     Direction,
 };
 
-use crate::{AncestorGraph, EdgeId, NodeId};
+use crate::{EdgeId, GraphView, NodeId};
 
-impl<'a, N, E> GraphBase for &'a AncestorGraph<N, E> {
+impl<'a, N, E> GraphBase for &'a GraphView<N, E> {
     type EdgeId = EdgeId<N, E>;
     type NodeId = NodeId<N, E>;
 }
 
-impl<'a, N, E> GraphRef for &'a AncestorGraph<N, E> {}
+impl<'a, N, E> GraphRef for &'a GraphView<N, E> {}
 
-impl<'a, N, E> IntoNeighbors for &'a AncestorGraph<N, E> {
+impl<'a, N, E> IntoNeighbors for &'a GraphView<N, E> {
     type Neighbors = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors(self, n: Self::NodeId) -> Self::Neighbors {
@@ -28,7 +28,7 @@ impl<'a, N, E> IntoNeighbors for &'a AncestorGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoNeighborsDirected for &'a AncestorGraph<N, E> {
+impl<'a, N, E> IntoNeighborsDirected for &'a GraphView<N, E> {
     type NeighborsDirected = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors_directed(self, node_ptr: Self::NodeId, d: Direction) -> Self::NeighborsDirected {
@@ -40,12 +40,12 @@ impl<'a, N, E> IntoNeighborsDirected for &'a AncestorGraph<N, E> {
     }
 }
 
-impl<'a, N, E> Data for &'a AncestorGraph<N, E> {
+impl<'a, N, E> Data for &'a GraphView<N, E> {
     type NodeWeight = N;
     type EdgeWeight = E;
 }
 
-impl<'a, N, E> IntoEdgeReferences for &'a AncestorGraph<N, E> {
+impl<'a, N, E> IntoEdgeReferences for &'a GraphView<N, E> {
     type EdgeRef = EdgeRef<'a, N, E>;
 
     type EdgeReferences = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
@@ -58,7 +58,7 @@ impl<'a, N, E> IntoEdgeReferences for &'a AncestorGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdges for &'a AncestorGraph<N, E> {
+impl<'a, N, E> IntoEdges for &'a GraphView<N, E> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges(self, node_id: Self::NodeId) -> Self::Edges {
@@ -72,7 +72,7 @@ impl<'a, N, E> IntoEdges for &'a AncestorGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdgesDirected for &'a AncestorGraph<N, E> {
+impl<'a, N, E> IntoEdgesDirected for &'a GraphView<N, E> {
     type EdgesDirected = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges_directed(self, node_id: Self::NodeId, d: Direction) -> Self::EdgesDirected {

@@ -8,11 +8,12 @@ to one of its descendants.
 ### Can't I just keep a list of `Rc`s within my `Rc`?
 Yes---and that is what this crate does under the hood. This crate however
 keeps track of additional data for you, thus providing additional functionalities:
- - dependencies can be traversed backward: []`RelRc::all_children(v)`] will
+ - dependencies can be traversed backward: [`RelRc::all_children(v)`] will
    return all objects (children) that depend on `v` (parent).
  - data can be stored on the dependency edges themselves.
- - the resulting directed acyclic dependency graph is exposed and can be 
-   traversed using [`petgraph`] (make sure to activate the `petgraph` feature).
+ - the resulting directed acyclic dependency graph is exposed with [`GraphView`]
+   and can be traversed using [`petgraph`] (make sure to activate the
+   `petgraph` feature).
 
 This crate can also be viewed as a directed acyclic graph (DAG) implementation,
 in which nodes are automatically removed when they and their descendants go out

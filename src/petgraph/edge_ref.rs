@@ -4,7 +4,7 @@ use petgraph::visit;
 
 use crate::{edge::InnerEdgeData, RelRc, RelWeak, WeakEdge};
 
-use crate::ancestor_graph::{EdgeId, NodeId};
+use crate::graph_view::{EdgeId, NodeId};
 
 /// An edge reference in an [`AncestorGraph`].
 ///
@@ -51,6 +51,28 @@ impl<'a, N, E> Clone for EdgeRef<'a, N, E> {
 }
 
 impl<'a, N, E> Copy for EdgeRef<'a, N, E> {}
+
+impl<'a, N, E> PartialEq for EdgeRef<'a, N, E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.target == other.target && self.index == other.index
+    }
+}
+
+impl<'a, N, E> Eq for EdgeRef<'a, N, E> {}
+
+impl<'a, N, E> PartialOrd for EdgeRef<'a, N, E> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'a, N, E> Ord for EdgeRef<'a, N, E> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.target
+            .cmp(&other.target)
+            .then_with(|| self.index.cmp(&other.index))
+    }
+}
 
 impl<'a, N, E> visit::EdgeRef for EdgeRef<'a, N, E> {
     type NodeId = NodeId<N, E>;
