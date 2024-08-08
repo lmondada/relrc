@@ -77,6 +77,7 @@ impl<'a, N, E> IntoEdges for &'a GraphView<N, E> {
         Box::new(
             edges
                 .into_iter()
+                .filter(|e| self.all_nodes().contains(&(&e.target).into()))
                 .map(|e| unsafe { EdgeRef::from_weak_unchecked(e) }),
         )
     }

@@ -9,12 +9,14 @@ mod serde;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{node::InnerData, RelRc};
+use crate::{node::InnerData, RelRc, RelWeak};
 use std::hash::Hash;
 
 use derive_more::{From, Into};
 #[cfg(feature = "petgraph")]
 use petgraph::visit::IntoEdges;
+#[cfg(feature = "petgraph")]
+use std::borrow::Borrow;
 
 /// View a set of [`RelRc`]s as a graph.
 ///
@@ -53,6 +55,16 @@ impl<N, E> Clone for GraphView<N, E> {
             sources: self.sources.clone(),
             sinks: self.sinks.clone(),
             all_nodes: self.all_nodes.clone(),
+        }
+    }
+}
+
+impl<N, E> Default for GraphView<N, E> {
+    fn default() -> Self {
+        Self {
+            sources: Default::default(),
+            sinks: Default::default(),
+            all_nodes: Default::default(),
         }
     }
 }
@@ -131,13 +143,13 @@ impl<N, E> GraphView<N, E> {
     /// ancestor of both nodes.
     #[cfg(feature = "petgraph")]
     pub fn lowest_common_ancestors<'a>(
-        graphs: &'a [Self],
+        graphs: &'a [impl Borrow<Self>],
     ) -> impl Iterator<Item = NodeId<N, E>> + 'a
     where
         N: 'a,
         E: 'a,
     {
-        let node_indices = all_indices(graphs.iter().map(|g| g.all_nodes.iter().copied()));
+        let node_indices = all_indices(graphs.iter().map(|g| g.borrow().all_nodes.iter().copied()));
 
         // Find all nodes that are in at least two graphs...
         node_indices
@@ -145,7 +157,7 @@ impl<N, E> GraphView<N, E> {
             .filter(|(_, indices)| indices.len() >= 2)
             .filter(|(n, indices)| {
                 let edge_indices = all_indices(indices.iter().map(|i| {
-                    let graph = &graphs[*i];
+                    let graph = &graphs[*i].borrow();
                     graph.edges(*n)
                 }));
                 // ...and with at least one outgoing edge not in all graphs
@@ -255,6 +267,12 @@ impl<N, E> Hash for NodeId<N, E> {
 impl<'a, N, E> From<&'a RelRc<N, E>> for NodeId<N, E> {
     fn from(node: &'a RelRc<N, E>) -> Self {
         Self(RelRc::as_ptr(node))
+    }
+}
+
+impl<'a, N, E> From<&'a RelWeak<N, E>> for NodeId<N, E> {
+    fn from(node: &'a RelWeak<N, E>) -> Self {
+        Self(RelWeak::as_ptr(node))
     }
 }
 

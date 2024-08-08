@@ -3,8 +3,31 @@ use std::{collections::BTreeMap, fmt::Debug};
 use crate::{GraphView, RelRc};
 
 use petgraph::algo::toposort;
+use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for GraphView<N, E> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let ser_graph: GraphViewSerializer<N, E> = self.into();
+        ser_graph.serialize(serializer)
+    }
+}
+
+impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
+    for GraphView<N, E>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'d>,
+    {
+        let ser_graph: GraphViewSerializer<N, E> = Deserialize::deserialize(deserializer)?;
+        GraphView::try_from(ser_graph).map_err(D::Error::custom)
+    }
+}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 struct SerializeNodeId(usize);
