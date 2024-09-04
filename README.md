@@ -11,7 +11,7 @@ keeps track of additional data for you, thus providing additional functionalitie
  - dependencies can be traversed backward: [`RelRc::all_children(v)`] will
    return all objects (children) that depend on `v` (parent).
  - data can be stored on the dependency edges themselves.
- - the resulting directed acyclic dependency graph is exposed with [`GraphView`]
+ - the resulting directed acyclic dependency graph is exposed with [`RelRcGraph`]
    and can be traversed using [`petgraph`] (make sure to activate the
    `petgraph` feature).
 
