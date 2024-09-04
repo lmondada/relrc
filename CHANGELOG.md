@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - tbd
+
+### Added
+- New `RelRcGraph::from_sinks_while` function for more general graph construction.
+- `RelRcGraph` no longer requires sources. Any induced subgraph of `RelRc` objects is now supported.
+- `RelRc::all_children` and `RelRc::all_parents` now return `ExactSizeIterator`s.
+
+### Changed
+- `GraphView` is renamed to `RelRcGraph`.
+
+### Removed
+- `RelRcGraph::sources` was removed. If required traverse all nodes and filter for `n_incoming == 0`.
+
 ## [0.2.2] - 2024-08-08
 
 ### Added

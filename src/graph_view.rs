@@ -13,84 +13,64 @@ use crate::{node::InnerData, RelRc, RelWeak};
 use std::hash::Hash;
 
 use derive_more::{From, Into};
+use derive_where::derive_where;
 #[cfg(feature = "petgraph")]
 use petgraph::visit::IntoEdges;
 #[cfg(feature = "petgraph")]
 use std::borrow::Borrow;
 
-/// View a set of [`RelRc`]s as a graph.
+/// View the dependencies for a set of [`RelRc`]s as a graph.
 ///
-/// The set of nodes in the graph is given by a set of sources and sinks. If
-/// both sources and sinks are given, then it must hold that all ancestors of the
-/// sink nodes must be either ancestors or descendants of sources, and vice versa.
+/// Represents induced subgraphs of [`RelRc`] objects, with directed edges
+/// representing parent-child relationships.
 ///
-/// We hold strong references to sinks, thus guaranteeing that all nodes in the
-/// graph alive as long as the graph is alive.
+/// [`GraphView`] instances hold strong references to the leaves (sinks) of the
+/// subgraph, thus guaranteeing that all nodes in the graph are alive at least
+/// as long as the graph object.
 ///
 /// Nodes are represented by [`NodeId`], which are copiable raw pointers to the data.
-/// The data is guaranteed to exist as long as the [`AncestorGraph`] exists.
+/// The data is guaranteed to exist as long as the [`GraphView`] exists.
 /// Accessing invalid node IDs will result in undefined behaviour, and may
 /// access arbitrary (unsafe!) memory addresses.
-pub struct GraphView<N, E> {
-    /// The nodes with in-degree 0 in the graph.
-    ///
-    /// All nodes in the graph are decendants of one of these nodes.
-    sources: BTreeSet<NodeId<N, E>>,
-    /// The nodes with outdegree 0 in the ancestor graph.
+#[derive_where(Clone, Default)]
+pub struct RelRcGraph<N, E> {
+    /// The nodes with outdegree 0 in the graph.
     ///
     /// We maintain strong references to these nodes, guaranteeing that all
     /// the nodes in the graph remain in memory.
     ///
     /// All nodes in the graph are ancestors of one of these nodes.
     sinks: Vec<RelRc<N, E>>,
-    /// The nodes in the ancestor graph.
+    /// The nodes that induce the graph.
     ///
     /// Guaranteed to be alive as we maintain strong references to the sinks.
     all_nodes: BTreeSet<NodeId<N, E>>,
 }
 
-impl<N, E> Clone for GraphView<N, E> {
-    fn clone(&self) -> Self {
-        Self {
-            sources: self.sources.clone(),
-            sinks: self.sinks.clone(),
-            all_nodes: self.all_nodes.clone(),
-        }
-    }
-}
-
-impl<N, E> Default for GraphView<N, E> {
-    fn default() -> Self {
-        Self {
-            sources: Default::default(),
-            sinks: Default::default(),
-            all_nodes: Default::default(),
-        }
-    }
-}
-
-impl<N, E> GraphView<N, E> {
-    /// Create the ancestor graph of all `sinks`.
+impl<N, E> RelRcGraph<N, E> {
+    /// Create the graph of all ancestors of `sinks`.
     pub fn from_sinks(sinks: Vec<RelRc<N, E>>) -> Self {
-        let mut all_nodes = BTreeSet::new();
-        let mut sources = BTreeSet::new();
-        let mut curr_nodes: BTreeSet<_> = sinks.iter().map(RelRc::as_ptr).collect();
+        Self::from_sinks_while(sinks, |_| true)
+    }
 
-        while let Some(node_id) = curr_nodes.pop_first() {
-            if all_nodes.insert(node_id.into()) {
-                let node = unsafe { &*node_id };
-                curr_nodes.extend(node.all_parents().map(RelRc::as_ptr));
-                if node.n_incoming() == 0 {
-                    sources.insert(node_id.into());
-                }
+    /// Create the graph of all ancestors of `sinks` that can be reached without
+    /// traversing an object for which `condition` returns `false`.
+    pub fn from_sinks_while(
+        sinks: Vec<RelRc<N, E>>,
+        condition: impl Fn(&RelRc<N, E>) -> bool,
+    ) -> Self {
+        let mut all_nodes: BTreeSet<NodeId<_, _>> = Default::default();
+        let as_entry = |n: &'_ RelRc<N, E>| (RelRc::as_ptr(n).into(), n.clone());
+        let mut curr_nodes: BTreeMap<_, _> = sinks.iter().map(as_entry).collect();
+
+        while let Some((node_id, node)) = curr_nodes.pop_first() {
+            if !all_nodes.contains(&node_id) && condition(&node) {
+                all_nodes.insert(node_id);
+                curr_nodes.extend(node.all_parents().map(as_entry));
             }
         }
 
-        Self {
-            sources,
-            sinks,
-            all_nodes,
-        }
+        Self { sinks, all_nodes }
     }
 
     /// Create the descendants graph of all `sources`.
@@ -116,12 +96,7 @@ impl<N, E> GraphView<N, E> {
             }
         }
 
-        let sources = sinks.iter().map(|n| RelRc::as_ptr(n).into()).collect();
-        Self {
-            sources,
-            sinks,
-            all_nodes,
-        }
+        Self { sinks, all_nodes }
     }
 
     /// Merge two ancestor graphs.
@@ -130,7 +105,6 @@ impl<N, E> GraphView<N, E> {
     pub fn merge(&mut self, other: Self) {
         self.sinks.extend(other.sinks);
         self.all_nodes.extend(other.all_nodes);
-        self.sources.extend(other.sources);
 
         // Make sure all terminal nodes are unique
         self.sinks.sort_by_key(|node| RelRc::as_ptr(node));
@@ -166,11 +140,6 @@ impl<N, E> GraphView<N, E> {
                     .any(|(_, e_indices)| e_indices.len() < indices.len())
             })
             .map(|(n, _)| n)
-    }
-
-    /// The nodes in the ancestor graph with indegree 0.
-    pub fn sources(&self) -> &BTreeSet<NodeId<N, E>> {
-        &self.sources
     }
 
     /// The nodes in the ancestor graph with outdegree 0.

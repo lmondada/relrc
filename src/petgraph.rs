@@ -13,16 +13,16 @@ use petgraph::{
     Direction,
 };
 
-use crate::{EdgeId, GraphView, NodeId};
+use crate::{EdgeId, NodeId, RelRcGraph};
 
-impl<'a, N, E> GraphBase for &'a GraphView<N, E> {
+impl<'a, N, E> GraphBase for &'a RelRcGraph<N, E> {
     type EdgeId = EdgeId<N, E>;
     type NodeId = NodeId<N, E>;
 }
 
-impl<'a, N, E> GraphRef for &'a GraphView<N, E> {}
+impl<'a, N, E> GraphRef for &'a RelRcGraph<N, E> {}
 
-impl<'a, N, E> IntoNeighbors for &'a GraphView<N, E> {
+impl<'a, N, E> IntoNeighbors for &'a RelRcGraph<N, E> {
     type Neighbors = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors(self, n: Self::NodeId) -> Self::Neighbors {
@@ -30,7 +30,7 @@ impl<'a, N, E> IntoNeighbors for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> IntoNeighborsDirected for &'a GraphView<N, E> {
+impl<'a, N, E> IntoNeighborsDirected for &'a RelRcGraph<N, E> {
     type NeighborsDirected = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors_directed(self, node_ptr: Self::NodeId, d: Direction) -> Self::NeighborsDirected {
@@ -42,12 +42,12 @@ impl<'a, N, E> IntoNeighborsDirected for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> Data for &'a GraphView<N, E> {
+impl<'a, N, E> Data for &'a RelRcGraph<N, E> {
     type NodeWeight = N;
     type EdgeWeight = E;
 }
 
-impl<'a, N, E> IntoEdgeReferences for &'a GraphView<N, E> {
+impl<'a, N, E> IntoEdgeReferences for &'a RelRcGraph<N, E> {
     type EdgeRef = EdgeRef<'a, N, E>;
 
     type EdgeReferences = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
@@ -60,7 +60,7 @@ impl<'a, N, E> IntoEdgeReferences for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> IntoNodeIdentifiers for &'a GraphView<N, E> {
+impl<'a, N, E> IntoNodeIdentifiers for &'a RelRcGraph<N, E> {
     type NodeIdentifiers = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
@@ -68,7 +68,7 @@ impl<'a, N, E> IntoNodeIdentifiers for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdges for &'a GraphView<N, E> {
+impl<'a, N, E> IntoEdges for &'a RelRcGraph<N, E> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges(self, node_id: Self::NodeId) -> Self::Edges {
@@ -83,7 +83,7 @@ impl<'a, N, E> IntoEdges for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdgesDirected for &'a GraphView<N, E> {
+impl<'a, N, E> IntoEdgesDirected for &'a RelRcGraph<N, E> {
     type EdgesDirected = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges_directed(self, node_id: Self::NodeId, d: Direction) -> Self::EdgesDirected {
@@ -102,7 +102,7 @@ impl<'a, N, E> IntoEdgesDirected for &'a GraphView<N, E> {
     }
 }
 
-impl<'a, N, E> Visitable for &'a GraphView<N, E> {
+impl<'a, N, E> Visitable for &'a RelRcGraph<N, E> {
     type Map = HashSet<NodeId<N, E>>;
 
     #[doc = r" Create a new visitor map"]

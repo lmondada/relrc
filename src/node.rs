@@ -226,12 +226,12 @@ impl<N, E> InnerData<N, E> {
     /// Iterate over all children of the object.
     ///
     /// The children are the objects that have an incoming edge from the object.
-    pub fn all_children(&self) -> impl Iterator<Item = RelRc<N, E>> {
+    pub fn all_children(&self) -> impl ExactSizeIterator<Item = RelRc<N, E>> {
         self.all_outgoing().into_iter().map(|e| e.into_target())
     }
 
     /// Iterate over all parents of the object.
-    pub fn all_parents(&self) -> impl Iterator<Item = &RelRc<N, E>> {
+    pub fn all_parents(&self) -> impl ExactSizeIterator<Item = &RelRc<N, E>> {
         self.all_incoming().iter().map(|e| e.source())
     }
 

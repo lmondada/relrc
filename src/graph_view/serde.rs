@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use crate::{GraphView, RelRc};
+use crate::{RelRc, RelRcGraph};
 
 use petgraph::algo::toposort;
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for GraphView<N, E> {
+impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for RelRcGraph<N, E> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -18,14 +18,14 @@ impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for GraphView<N, E> {
 }
 
 impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
-    for GraphView<N, E>
+    for RelRcGraph<N, E>
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'d>,
     {
         let ser_graph: GraphViewSerializer<N, E> = Deserialize::deserialize(deserializer)?;
-        GraphView::try_from(ser_graph).map_err(D::Error::custom)
+        RelRcGraph::try_from(ser_graph).map_err(D::Error::custom)
     }
 }
 
@@ -46,13 +46,12 @@ struct SerializeEdgeData<E> {
 
 #[derive(Serialize, Deserialize)]
 struct GraphViewSerializer<N, E> {
-    sources: Vec<SerializeNodeId>,
     sinks: Vec<SerializeNodeId>,
     all_nodes: Vec<SerializeNodeData<N, E>>,
 }
 
-impl<N: Clone, E: Clone> From<&GraphView<N, E>> for GraphViewSerializer<N, E> {
-    fn from(graph: &GraphView<N, E>) -> Self {
+impl<N: Clone, E: Clone> From<&RelRcGraph<N, E>> for GraphViewSerializer<N, E> {
+    fn from(graph: &RelRcGraph<N, E>) -> Self {
         let mut node_id_map = BTreeMap::new();
 
         let mut all_nodes = Vec::new();
@@ -91,18 +90,13 @@ impl<N: Clone, E: Clone> From<&GraphView<N, E>> for GraphViewSerializer<N, E> {
         }
 
         // Add sources and sinks
-        let sources = graph.sources().iter().map(|n| node_id_map[n]).collect();
         let sinks = graph
             .sinks()
             .iter()
             .map(|n| node_id_map[&n.into()])
             .collect();
 
-        Self {
-            sources,
-            sinks,
-            all_nodes,
-        }
+        Self { sinks, all_nodes }
     }
 }
 
@@ -112,7 +106,7 @@ pub enum GraphDeserializationError {
     InvalidTopologicalOrder,
 }
 
-impl<N, E> TryFrom<GraphViewSerializer<N, E>> for GraphView<N, E> {
+impl<N, E> TryFrom<GraphViewSerializer<N, E>> for RelRcGraph<N, E> {
     type Error = GraphDeserializationError;
 
     fn try_from(ser_graph: GraphViewSerializer<N, E>) -> Result<Self, Self::Error> {
@@ -133,18 +127,9 @@ impl<N, E> TryFrom<GraphViewSerializer<N, E>> for GraphView<N, E> {
             .into_iter()
             .map(|id| nodes[id.0].clone())
             .collect();
-        let sources = ser_graph
-            .sources
-            .into_iter()
-            .map(|id| (&nodes[id.0]).into())
-            .collect();
         let all_nodes = nodes.into_iter().map(|n| (&n).into()).collect();
 
-        Ok(GraphView {
-            sources,
-            sinks,
-            all_nodes,
-        })
+        Ok(RelRcGraph { sinks, all_nodes })
     }
 }
 
@@ -174,7 +159,7 @@ mod tests {
 
     #[rstest]
     fn test_serialization(sample_graph: Vec<RelRc<String, u32>>) {
-        let graph = GraphView::from_sinks(sample_graph);
+        let graph = RelRcGraph::from_sinks(sample_graph);
         let serialized = GraphViewSerializer::from(&graph);
 
         let json = serde_json::to_string_pretty(&serialized).unwrap();
@@ -183,9 +168,9 @@ mod tests {
 
     #[rstest]
     fn test_roundtrip(sample_graph: Vec<RelRc<String, u32>>) {
-        let original_graph = GraphView::from_sinks(sample_graph);
+        let original_graph = RelRcGraph::from_sinks(sample_graph);
         let serialized = GraphViewSerializer::from(&original_graph);
-        let deserialized_graph = GraphView::try_from(serialized).unwrap();
+        let deserialized_graph = RelRcGraph::try_from(serialized).unwrap();
 
         let (root, child1, child2, grandchild) = toposort(&deserialized_graph, None)
             .unwrap()

@@ -8,7 +8,7 @@ pub mod node;
 pub mod petgraph;
 
 pub use edge::Edge;
-pub use graph_view::{EdgeId, GraphView, NodeId};
+pub use graph_view::{EdgeId, RelRcGraph, NodeId};
 pub use node::RelRc;
 
 // Weak references are not exported publicly.

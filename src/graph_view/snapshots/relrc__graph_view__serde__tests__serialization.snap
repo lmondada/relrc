@@ -3,9 +3,6 @@ source: src/graph_view/serde.rs
 expression: json
 ---
 {
-  "sources": [
-    0
-  ],
   "sinks": [
     3
   ],
