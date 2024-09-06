@@ -4,6 +4,8 @@
 //! The easiest way to traverse these graphs is using the `petgraph` traits by
 //! activating the `petgraph` feature of this crate.
 
+#[cfg(feature = "petgraph")]
+mod map;
 #[cfg(feature = "serde")]
 mod serde;
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `RelRcGraph::from_sinks_while` function for more general graph construction.
 - `RelRcGraph` no longer requires sources. Any induced subgraph of `RelRc` objects is now supported.
 - `RelRc::all_children` and `RelRc::all_parents` now return `ExactSizeIterator`s.
+- `RelRcGraph::map` to create a new graph with mapped node and edge weights.
 
 ### Changed
 - `GraphView` is renamed to `RelRcGraph`.
