@@ -217,6 +217,7 @@ impl<N, E> RelRcGraph<N, E> {
         }
     }
 
+    /// Get the edge data for an edge identifier.
     pub fn get_edge(&self, edge_id: EdgeId<N, E>) -> &InnerEdgeData<N, E> {
         let node = self.get_node(edge_id.target);
         &node.all_incoming()[edge_id.index]
