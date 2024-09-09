@@ -72,14 +72,7 @@ impl<'a, N, E> IntoEdges for &'a RelRcGraph<N, E> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges(self, node_id: Self::NodeId) -> Self::Edges {
-        let node = self.get_node(node_id);
-        let edges = node.all_outgoing_weak().to_vec();
-        Box::new(
-            edges
-                .into_iter()
-                .filter(|e| self.all_nodes().contains(&(&e.target).into()))
-                .map(|e| unsafe { EdgeRef::from_weak_unchecked(e) }),
-        )
+        Box::new(self.outgoing_edges(node_id).map(|e| e.into()))
     }
 }
 

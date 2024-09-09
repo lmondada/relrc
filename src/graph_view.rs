@@ -9,9 +9,12 @@ mod map;
 #[cfg(feature = "serde")]
 mod serde;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
 
-use crate::{node::InnerData, RelRc, RelWeak};
+use crate::{edge::InnerEdgeData, node::InnerData, RelRc, RelWeak};
 use std::hash::Hash;
 
 use derive_more::{From, Into};
@@ -101,16 +104,54 @@ impl<N, E> RelRcGraph<N, E> {
         Self { sinks, all_nodes }
     }
 
+    /// Get all outgoing edge IDs from a node.
+    pub fn outgoing_edges(&self, node_id: NodeId<N, E>) -> impl Iterator<Item = EdgeId<N, E>> + '_ {
+        let node = self.get_node(node_id);
+        let edges = node.all_outgoing_weak().to_vec();
+        edges
+            .into_iter()
+            .filter(|e| self.all_nodes().contains(&(&e.target).into()))
+            .map(|e| EdgeId {
+                target: RelWeak::as_ptr(&e.target).into(),
+                index: e.index,
+            })
+    }
+
     /// Merge two ancestor graphs.
     ///
     /// The resulting graph will contain all nodes from both graphs.
-    pub fn merge(&mut self, other: Self) {
-        self.sinks.extend(other.sinks);
-        self.all_nodes.extend(other.all_nodes);
+    ///
+    /// At every node that is merged between `self` and `other`, the `callback`
+    /// is called with the node id and the outgoing edges in `self` and `other`
+    /// respectively. If the callback returns an error, the merge will not take
+    /// place and the error is returned.
+    pub fn merge<Ex>(
+        &mut self,
+        other: Self,
+        callback: impl Fn(
+            NodeId<N, E>,
+            &[&InnerEdgeData<N, E>],
+            &[&InnerEdgeData<N, E>],
+        ) -> Result<(), Ex>,
+    ) -> Result<(), Ex> {
+        let mut all_nodes = self.all_nodes.clone();
+        for &node in &other.all_nodes {
+            if !all_nodes.insert(node) {
+                let self_edges: Vec<_> = self
+                    .outgoing_edges(node)
+                    .map(|e| self.get_edge(e))
+                    .collect();
+                let other_edges: Vec<_> = other
+                    .outgoing_edges(node)
+                    .map(|e| other.get_edge(e))
+                    .collect();
+                callback(node, &self_edges, &other_edges)?;
+            }
+        }
 
-        // Make sure all terminal nodes are unique
-        self.sinks.sort_by_key(|node| RelRc::as_ptr(node));
-        self.sinks.dedup_by_key(|node| RelRc::as_ptr(node));
+        self.all_nodes = all_nodes;
+        merge_sorted_vecs_by_key(&mut self.sinks, other.sinks, |node| RelRc::as_ptr(node));
+        Ok(())
     }
 
     /// Find the lowest common ancestors of two graphs.
@@ -175,6 +216,40 @@ impl<N, E> RelRcGraph<N, E> {
                 .clone()
         }
     }
+
+    pub fn get_edge(&self, edge_id: EdgeId<N, E>) -> &InnerEdgeData<N, E> {
+        let node = self.get_node(edge_id.target);
+        &node.all_incoming()[edge_id.index]
+    }
+}
+
+/// Merge two sorted vectors into one.
+///
+/// All elements in the resulting vec are distinct, i.e. removes duplicates.
+///
+/// The key function is used to compare elements and define equality.
+fn merge_sorted_vecs_by_key<T, K: Ord>(vec1: &mut Vec<T>, vec2: Vec<T>, key: impl Fn(&T) -> K) {
+    let mut result = Vec::with_capacity(vec1.len() + vec2.len());
+    let mut iter1 = vec1.drain(..).peekable();
+    let mut iter2 = vec2.into_iter().peekable();
+
+    while iter1.peek().is_some() && iter2.peek().is_some() {
+        let key1 = key(iter1.peek().unwrap());
+        let key2 = key(iter2.peek().unwrap());
+        match key1.cmp(&key2) {
+            Ordering::Less => result.push(iter1.next().unwrap()),
+            Ordering::Greater => result.push(iter2.next().unwrap()),
+            Ordering::Equal => {
+                result.push(iter1.next().unwrap());
+                iter2.next();
+            }
+        }
+    }
+
+    result.extend(iter1);
+    result.extend(iter2);
+
+    *vec1 = result;
 }
 
 #[cfg(feature = "petgraph")]

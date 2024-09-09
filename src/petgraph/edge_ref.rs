@@ -16,6 +16,12 @@ pub struct EdgeRef<'a, N, E> {
     _lifetime: PhantomData<&'a ()>,
 }
 
+impl<'a, N, E> From<EdgeId<N, E>> for EdgeRef<'a, N, E> {
+    fn from(id: EdgeId<N, E>) -> Self {
+        unsafe { Self::new_unchecked(id.target, id.index) }
+    }
+}
+
 impl<'a, N, E> EdgeRef<'a, N, E> {
     fn edge_data(&self) -> &'a InnerEdgeData<N, E>
     where

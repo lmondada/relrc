@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RelRcGraph` no longer requires sources. Any induced subgraph of `RelRc` objects is now supported.
 - `RelRc::all_children` and `RelRc::all_parents` now return `ExactSizeIterator`s.
 - `RelRcGraph::map` to create a new graph with mapped node and edge weights.
+- `RelRcGraph::outgoing_edges` to get all outgoing edge IDs from a node.
 
 ### Changed
 - `GraphView` is renamed to `RelRcGraph`.
+- `RelRcGraph::merge` now takes a callback called on every node that is merged.
 
 ### Removed
 - `RelRcGraph::sources` was removed. If required traverse all nodes and filter for `n_incoming == 0`.
