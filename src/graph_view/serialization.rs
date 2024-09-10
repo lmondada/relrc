@@ -12,7 +12,7 @@ impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for RelRcGraph<N, E> 
     where
         S: serde::Serializer,
     {
-        let ser_graph: GraphViewSerializer<N, E> = self.into();
+        let ser_graph: RelRcGraphSerializer<N, E> = self.into();
         ser_graph.serialize(serializer)
     }
 }
@@ -24,33 +24,33 @@ impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
     where
         D: serde::Deserializer<'d>,
     {
-        let ser_graph: GraphViewSerializer<N, E> = Deserialize::deserialize(deserializer)?;
+        let ser_graph: RelRcGraphSerializer<N, E> = Deserialize::deserialize(deserializer)?;
         RelRcGraph::try_from(ser_graph).map_err(D::Error::custom)
     }
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-struct SerializeNodeId(usize);
+pub struct SerializeNodeId(pub usize);
 
 #[derive(Serialize, Deserialize)]
-struct SerializeNodeData<N, E> {
-    value: N,
-    incoming: Vec<SerializeEdgeData<E>>,
+pub struct SerializeNodeData<N, E> {
+    pub value: N,
+    pub incoming: Vec<SerializeEdgeData<E>>,
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializeEdgeData<E> {
-    source: SerializeNodeId,
-    value: E,
+pub struct SerializeEdgeData<E> {
+    pub source: SerializeNodeId,
+    pub value: E,
 }
 
 #[derive(Serialize, Deserialize)]
-struct GraphViewSerializer<N, E> {
-    sinks: Vec<SerializeNodeId>,
-    all_nodes: Vec<SerializeNodeData<N, E>>,
+pub struct RelRcGraphSerializer<N, E> {
+    pub sinks: Vec<SerializeNodeId>,
+    pub all_nodes: Vec<SerializeNodeData<N, E>>,
 }
 
-impl<N: Clone, E: Clone> From<&RelRcGraph<N, E>> for GraphViewSerializer<N, E> {
+impl<N: Clone, E: Clone> From<&RelRcGraph<N, E>> for RelRcGraphSerializer<N, E> {
     fn from(graph: &RelRcGraph<N, E>) -> Self {
         let mut node_id_map = BTreeMap::new();
 
@@ -106,10 +106,10 @@ pub enum GraphDeserializationError {
     InvalidTopologicalOrder,
 }
 
-impl<N, E> TryFrom<GraphViewSerializer<N, E>> for RelRcGraph<N, E> {
+impl<N, E> TryFrom<RelRcGraphSerializer<N, E>> for RelRcGraph<N, E> {
     type Error = GraphDeserializationError;
 
-    fn try_from(ser_graph: GraphViewSerializer<N, E>) -> Result<Self, Self::Error> {
+    fn try_from(ser_graph: RelRcGraphSerializer<N, E>) -> Result<Self, Self::Error> {
         let mut nodes: Vec<RelRc<N, E>> = Vec::new();
         for ser_node in ser_graph.all_nodes {
             let SerializeNodeData { value, incoming } = ser_node;
@@ -160,7 +160,7 @@ mod tests {
     #[rstest]
     fn test_serialization(sample_graph: Vec<RelRc<String, u32>>) {
         let graph = RelRcGraph::from_sinks(sample_graph);
-        let serialized = GraphViewSerializer::from(&graph);
+        let serialized = RelRcGraphSerializer::from(&graph);
 
         let json = serde_json::to_string_pretty(&serialized).unwrap();
         assert_snapshot!(json);
@@ -169,7 +169,7 @@ mod tests {
     #[rstest]
     fn test_roundtrip(sample_graph: Vec<RelRc<String, u32>>) {
         let original_graph = RelRcGraph::from_sinks(sample_graph);
-        let serialized = GraphViewSerializer::from(&original_graph);
+        let serialized = RelRcGraphSerializer::from(&original_graph);
         let deserialized_graph = RelRcGraph::try_from(serialized).unwrap();
 
         let (root, child1, child2, grandchild) = toposort(&deserialized_graph, None)

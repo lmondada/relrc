@@ -7,7 +7,12 @@
 #[cfg(feature = "petgraph")]
 mod map;
 #[cfg(feature = "serde")]
-mod serde;
+mod serialization;
+
+#[cfg(feature = "serde")]
+pub use serialization::{
+    RelRcGraphSerializer, SerializeEdgeData, SerializeNodeData, SerializeNodeId,
+};
 
 use std::{
     cmp::Ordering,
