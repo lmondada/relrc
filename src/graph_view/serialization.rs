@@ -50,6 +50,25 @@ pub struct RelRcGraphSerializer<N, E> {
     pub all_nodes: Vec<SerializeNodeData<N, E>>,
 }
 
+impl<N: Clone, E: Clone> RelRcGraphSerializer<N, E> {
+    /// Get the diffs in the graph and create RelRc nodes from them.
+    pub fn get_diffs(&self) -> Result<Vec<RelRc<N, E>>, GraphDeserializationError> {
+        let mut nodes: Vec<RelRc<N, E>> = Vec::new();
+        for ser_node in &self.all_nodes {
+            let SerializeNodeData { value, incoming } = ser_node;
+            if incoming.iter().any(|e| e.source.0 >= nodes.len()) {
+                return Err(GraphDeserializationError::InvalidTopologicalOrder);
+            }
+            let parents = incoming
+                .into_iter()
+                .map(|ser_edge| (nodes[ser_edge.source.0].clone(), ser_edge.value.clone()));
+            let node = RelRc::with_parents(value.clone(), parents);
+            nodes.push(node);
+        }
+        Ok(nodes)
+    }
+}
+
 impl<N: Clone, E: Clone> From<&RelRcGraph<N, E>> for RelRcGraphSerializer<N, E> {
     fn from(graph: &RelRcGraph<N, E>) -> Self {
         let mut node_id_map = BTreeMap::new();
@@ -106,22 +125,11 @@ pub enum GraphDeserializationError {
     InvalidTopologicalOrder,
 }
 
-impl<N, E> TryFrom<RelRcGraphSerializer<N, E>> for RelRcGraph<N, E> {
+impl<N: Clone, E: Clone> TryFrom<RelRcGraphSerializer<N, E>> for RelRcGraph<N, E> {
     type Error = GraphDeserializationError;
 
     fn try_from(ser_graph: RelRcGraphSerializer<N, E>) -> Result<Self, Self::Error> {
-        let mut nodes: Vec<RelRc<N, E>> = Vec::new();
-        for ser_node in ser_graph.all_nodes {
-            let SerializeNodeData { value, incoming } = ser_node;
-            if incoming.iter().any(|e| e.source.0 >= nodes.len()) {
-                return Err(GraphDeserializationError::InvalidTopologicalOrder);
-            }
-            let parents = incoming
-                .into_iter()
-                .map(|ser_edge| (nodes[ser_edge.source.0].clone(), ser_edge.value));
-            let node = RelRc::with_parents(value, parents);
-            nodes.push(node);
-        }
+        let nodes = ser_graph.get_diffs()?;
         let sinks = ser_graph
             .sinks
             .into_iter()
