@@ -29,22 +29,22 @@ impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeNodeId(pub usize);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeNodeData<N, E> {
     pub value: N,
     pub incoming: Vec<SerializeEdgeData<E>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeEdgeData<E> {
     pub source: SerializeNodeId,
     pub value: E,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelRcGraphSerializer<N, E> {
     pub sinks: Vec<SerializeNodeId>,
     pub all_nodes: Vec<SerializeNodeData<N, E>>,
