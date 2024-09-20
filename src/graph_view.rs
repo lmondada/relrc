@@ -127,9 +127,9 @@ impl<N, E> RelRcGraph<N, E> {
     /// The resulting graph will contain all nodes from both graphs.
     ///
     /// At every node that is merged between `self` and `other`, the `callback`
-    /// is called with the node id and the outgoing edges in `self` and `other`
-    /// respectively. If the callback returns an error, the merge will not take
-    /// place and the error is returned.
+    /// is called with the node id, the outgoing edges in `self` and the outgoing
+    /// edges in `other` that are not in `self`. If the callback returns an
+    /// error, the merge will not take place and the error is returned.
     pub fn merge<Ex>(
         &mut self,
         other: Self,
@@ -142,14 +142,13 @@ impl<N, E> RelRcGraph<N, E> {
         let mut all_nodes = self.all_nodes.clone();
         for &node in &other.all_nodes {
             if !all_nodes.insert(node) {
-                let self_edges: Vec<_> = self
-                    .outgoing_edges(node)
-                    .map(|e| self.get_edge(e))
-                    .collect();
+                let self_edges: BTreeSet<_> = self.outgoing_edges(node).collect();
                 let other_edges: Vec<_> = other
                     .outgoing_edges(node)
+                    .filter(|e| !self_edges.contains(&e))
                     .map(|e| other.get_edge(e))
                     .collect();
+                let self_edges: Vec<_> = self_edges.into_iter().map(|e| self.get_edge(e)).collect();
                 callback(node, &self_edges, &other_edges)?;
             }
         }
