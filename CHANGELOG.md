@@ -13,10 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RelRc::all_children` and `RelRc::all_parents` now return `ExactSizeIterator`s.
 - `RelRcGraph::map` to create a new graph with mapped node and edge weights.
 - `RelRcGraph::outgoing_edges` to get all outgoing edge IDs from a node.
+- `RelRc::detach` and `RelRc::attach` to attach and detach a `RelRc` object from its parents. This allows to "move" objects by detaching them from one graph and attaching them to another. In the future, will be used for serialisation.
+- Every `RelRc` object now has a unique `RelRcHash` hash ID, retrievable via `RelRc::hash_id`. Similar to git's commit hashes.
 
 ### Changed
 - `GraphView` is renamed to `RelRcGraph`.
 - `RelRcGraph::merge` now takes a callback called on every node that is merged.
+- Using instance methods instead of static functions for RelRc. 
+- `RelRc` requires `Hash` to construct, as hash values are computed and memoised at construction time.
 
 ### Removed
 - `RelRcGraph::sources` was removed. If required traverse all nodes and filter for `n_incoming == 0`.

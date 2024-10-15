@@ -1,0 +1,46 @@
+---
+source: src/graph_view/serialization.rs
+expression: json
+---
+{
+  "sinks": [
+    3
+  ],
+  "all_nodes": [
+    {
+      "value": "Root",
+      "incoming": []
+    },
+    {
+      "value": "Child 1",
+      "incoming": [
+        {
+          "source": 0,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "value": "Child 2",
+      "incoming": [
+        {
+          "source": 0,
+          "value": 2
+        }
+      ]
+    },
+    {
+      "value": "Grandchild",
+      "incoming": [
+        {
+          "source": 1,
+          "value": 3
+        },
+        {
+          "source": 2,
+          "value": 4
+        }
+      ]
+    }
+  ]
+}

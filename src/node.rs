@@ -1,6 +1,7 @@
 //! Reference-counted pointers.
 
 use std::cell::Ref;
+use std::hash::Hash;
 use std::{
     cell::RefCell,
     ops::Deref,
@@ -9,6 +10,7 @@ use std::{
 
 use derive_more::From;
 
+use crate::hash_id::RelRcHash;
 use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 
 /// A single-threaded reference-counted pointer, optionally with relationships
@@ -26,19 +28,38 @@ use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 /// Just like [`Rc`], [`RelRc`] objects are immutable. Once a [`RelRc`] object
 /// is created, both its value as well as its parents cannot be changed. Children
 /// can however always be added (and removed when falling out of scope).
+///
+/// ## Unique IDs
+///
+/// Every [`RelRc`] object is assigned a unique hash-based identifier. For this
+/// reason, object creation operations will require N and E generics to be hashable.
 #[derive(Debug)]
-pub struct RelRc<N, E>(Rc<InnerData<N, E>>);
+pub struct RelRc<N, E> {
+    inner: Rc<InnerData<N, E>>,
+    hash_id: RelRcHash,
+}
 
 impl<N, E> Clone for RelRc<N, E> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            inner: self.inner.clone(),
+            hash_id: self.hash_id,
+        }
     }
 }
 
-impl<N, E> RelRc<N, E> {
+impl<N: Hash, E: Hash> From<Rc<InnerData<N, E>>> for RelRc<N, E> {
+    fn from(inner: Rc<InnerData<N, E>>) -> Self {
+        let hash_id = RelRcHash::from(inner.as_ref());
+        Self { inner, hash_id }
+    }
+}
+
+impl<N: Hash, E: Hash> RelRc<N, E> {
     /// Create a new [`RelRc<N, E>`] with no parents.
     pub fn new(value: N) -> Self {
-        Self(Rc::new(InnerData::new(value)))
+        let inner = Rc::new(InnerData::new(value));
+        inner.into()
     }
 
     /// Create a new [`RelRc<N, E>`] with the given list of parent objects.
@@ -47,7 +68,7 @@ impl<N, E> RelRc<N, E> {
     /// corresponding edge value. The order of the parents is guaranteed to
     /// never change.
     pub fn with_parents(value: N, parents: impl IntoIterator<Item = (RelRc<N, E>, E)>) -> Self {
-        let node = RelRc(Rc::new_cyclic(|weak_node| {
+        let inner = Rc::new_cyclic(|weak_node| {
             let weak_node: RelWeak<N, E> = weak_node.clone().into();
             let incoming = parents
                 .into_iter()
@@ -56,34 +77,45 @@ impl<N, E> RelRc<N, E> {
                 })
                 .collect();
             InnerData::with_incoming(value, incoming)
-        }));
+        });
+        let node = Self::from(inner);
         register_outgoing_edges(&node.incoming);
         node
     }
+}
 
+impl<N, E> RelRc<N, E> {
     /// Get a raw pointer to the underlying data.
     ///
     /// This is a low-level function that returns a raw pointer to the
     /// underlying data. The pointer is valid as long as at least one reference
     /// to the data exists.
-    pub fn as_ptr(this: &Self) -> *const InnerData<N, E> {
-        Rc::as_ptr(&this.0)
+    pub fn as_ptr(&self) -> *const InnerData<N, E> {
+        Rc::as_ptr(&self.inner)
     }
 
     /// Unwrap the pointer, returning the value if `self` was the only owner.
     ///
     /// Returns an Err with `self` if there is more than one owner.
-    pub fn try_unwrap(this: Self) -> Result<N, Self> {
-        match Rc::try_unwrap(this.0) {
+    pub fn try_unwrap(self) -> Result<N, Self> {
+        match Rc::try_unwrap(self.inner) {
             Ok(data) => Ok(data.value),
-            Err(data) => Err(RelRc(data)),
+            Err(data) => Err(RelRc {
+                inner: data,
+                hash_id: self.hash_id,
+            }),
         }
     }
 
     /// Check if two pointers point to the same underlying data by comparing their
     /// raw pointers.
-    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
-        Rc::ptr_eq(&this.0, &other.0)
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Get the hash ID of the node.
+    pub fn hash_id(&self) -> RelRcHash {
+        self.hash_id
     }
 }
 
@@ -99,18 +131,20 @@ impl<N, E> Clone for RelWeak<N, E> {
     }
 }
 
-impl<N, E> RelWeak<N, E> {
+impl<N: Hash, E: Hash> RelWeak<N, E> {
     /// Upgrades to a [`Node`] if the reference is still valid.
     pub fn upgrade(&self) -> Option<RelRc<N, E>> {
-        self.0.upgrade().map(RelRc)
+        self.0.upgrade().map(RelRc::from)
+    }
+}
+
+impl<N, E> RelWeak<N, E> {
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Weak::ptr_eq(&self.0, &other.0)
     }
 
-    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
-        Weak::ptr_eq(&this.0, &other.0)
-    }
-
-    pub fn as_ptr(this: &Self) -> *const InnerData<N, E> {
-        Weak::as_ptr(&this.0)
+    pub fn as_ptr(&self) -> *const InnerData<N, E> {
+        Weak::as_ptr(&self.0)
     }
 }
 
@@ -139,7 +173,7 @@ impl<N, E> Deref for RelRc<N, E> {
     type Target = InnerData<N, E>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
@@ -153,7 +187,7 @@ impl<N: Default, E> Default for InnerData<N, E> {
     }
 }
 
-impl<N: Default, E> Default for RelRc<N, E> {
+impl<N: Default + Hash, E: Hash> Default for RelRc<N, E> {
     fn default() -> Self {
         Self::new(Default::default())
     }
@@ -196,6 +230,22 @@ impl<N, E> InnerData<N, E> {
         &self.incoming
     }
 
+    pub(crate) fn all_outgoing_weak(&self) -> Ref<[WeakEdge<N, E>]> {
+        Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
+    }
+
+    /// Iterate over all parents of the object.
+    pub fn all_parents(&self) -> impl ExactSizeIterator<Item = &RelRc<N, E>> {
+        self.all_incoming().iter().map(|e| e.source())
+    }
+
+    /// The number of incoming edges.
+    pub fn n_incoming(&self) -> usize {
+        self.incoming.len()
+    }
+}
+
+impl<N: Hash, E: Hash> InnerData<N, E> {
     /// Iterate over all outgoing edges.
     ///
     /// The edges are weakly referenced, so they may get deleted if all downstream
@@ -217,25 +267,11 @@ impl<N, E> InnerData<N, E> {
         edges
     }
 
-    pub(crate) fn all_outgoing_weak(&self) -> Ref<[WeakEdge<N, E>]> {
-        Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
-    }
-
     /// Iterate over all children of the object.
     ///
     /// The children are the objects that have an incoming edge from the object.
     pub fn all_children(&self) -> impl ExactSizeIterator<Item = RelRc<N, E>> {
         self.all_outgoing().into_iter().map(|e| e.into_target())
-    }
-
-    /// Iterate over all parents of the object.
-    pub fn all_parents(&self) -> impl ExactSizeIterator<Item = &RelRc<N, E>> {
-        self.all_incoming().iter().map(|e| e.source())
-    }
-
-    /// The number of incoming edges.
-    pub fn n_incoming(&self) -> usize {
-        self.incoming.len()
     }
 
     /// The number of outgoing edges.

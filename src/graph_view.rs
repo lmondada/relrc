@@ -57,7 +57,7 @@ pub struct RelRcGraph<N, E> {
     all_nodes: BTreeSet<NodeId<N, E>>,
 }
 
-impl<N, E> RelRcGraph<N, E> {
+impl<N: Hash, E: Hash> RelRcGraph<N, E> {
     /// Create the graph of all ancestors of `sinks`.
     pub fn from_sinks(sinks: Vec<RelRc<N, E>>) -> Self {
         Self::from_sinks_while(sinks, |_| true)
