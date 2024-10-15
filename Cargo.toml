@@ -10,16 +10,18 @@ license = "Apache-2.0"
 derive-where = "1.2.7"
 derive_more = "0.99.18"
 fxhash = "0.2.1"
+mpi = { version = "0.8.0", optional = true }
 petgraph = { version = "0.6.5", optional = true }
 serde = { version = "1.0.204", optional = true, features = ["derive"] }
 thiserror = "1.0.63"
+itertools = "0.13.0"
 
 [features]
 petgraph = ["dep:petgraph"]
 serde = ["dep:serde"]
+mpi = ["dep:mpi"]
 
 [dev-dependencies]
 insta = "1.39.0"
-itertools = "0.13.0"
 rstest = "0.22.0"
 serde_json = "1.0.122"

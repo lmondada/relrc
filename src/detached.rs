@@ -6,10 +6,17 @@
 //! potentially different process or machine), where it can be re-attached to
 //! other [`RelRc`] objects.
 
+#[cfg(feature = "mpi")]
+mod mpi;
+
+#[cfg(feature = "mpi")]
+pub use mpi::{MPIRecvRelRc, MPISendRelRc};
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 
 use crate::{edge::InnerEdgeData, hash_id::RelRcHash, node::InnerData, RelRc};
+use itertools::Itertools;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +41,10 @@ impl<N: Clone, E: Clone> RelRc<N, E> {
     ///
     /// The set of [`RelRc`] `attach_to` specifies the objects to attach
     /// the detached object to.
+    ///
+    /// Panics if not all objects that are required to attach the detached object
+    /// are available in `attach_to`. Use [`Detached::attaches_to`] to check
+    /// whether the attachment will succeed.
     pub fn attach(
         detached: Detached<N, E>,
         attach_to: impl IntoIterator<Item = RelRc<N, E>>,
@@ -99,6 +110,49 @@ impl<N: Clone, E: Clone> Detached<N, E> {
     }
 }
 
+impl<N, E> Detached<N, E> {
+    /// Create an empty [`Detached`] object.
+    ///
+    /// Useful for building a [`Detached`] object incrementally.
+    ///
+    /// This constructor is not exported, we only want users to create
+    /// [`Detached`] objects by detaching [`RelRc`] objects.
+    #[cfg(feature = "mpi")]
+    fn empty(current: RelRcHash) -> Self {
+        Self {
+            current,
+            all_data: BTreeMap::new(),
+        }
+    }
+
+    /// Get the number of ancestors of the detached object (including self).
+    pub fn n_ancestors(&self) -> usize {
+        self.all_data.len()
+    }
+}
+
+impl<N, E> Detached<N, E> {
+    /// Get the hashes of the objects that are required to successfully attach
+    /// self.
+    pub fn required_hashes(&self) -> impl Iterator<Item = RelRcHash> + '_ {
+        self.all_data
+            .values()
+            .flat_map(|data| data.parents())
+            .filter(|hash| !self.all_data.contains_key(hash))
+            .unique()
+    }
+
+    /// Check if trying to attach `self` to the objects in `attach_to` will
+    /// succeed.
+    ///
+    /// In other words, check that all objects that are required to attach `self`
+    /// are available in `attach_to`.
+    pub fn attaches_to(&self, attach_to: &BTreeMap<RelRcHash, RelRc<N, E>>) -> bool {
+        self.required_hashes()
+            .all(|hash| attach_to.contains_key(&hash))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub(crate) struct DetachedInnerData<N, E> {
@@ -133,6 +187,10 @@ impl<N, E> DetachedInnerData<N, E> {
                 .collect(),
         }
     }
+
+    fn parents(&self) -> impl Iterator<Item = RelRcHash> + '_ {
+        self.incoming.iter().map(|(hash, _)| *hash)
+    }
 }
 
 fn ancestors_upto<N, E>(
@@ -145,7 +203,7 @@ fn ancestors_upto<N, E>(
     while let Some(node) = stack.pop() {
         let node_id = node.hash_id();
         if !all_nodes.contains_key(&node_id) && !detach_from.contains(&node_id) {
-            stack.extend(node.all_parents().map(|n| n.clone()));
+            stack.extend(node.all_parents().cloned());
             all_nodes.insert(node_id, node);
         }
     }
