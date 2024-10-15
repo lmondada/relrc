@@ -1,5 +1,6 @@
 //! Parent-child relationships between [`RelRc`] objects.
 
+use std::hash::Hash;
 use std::ops::Deref;
 
 use crate::{RelRc, RelWeak};
@@ -13,7 +14,7 @@ use crate::{RelRc, RelWeak};
 /// Note: the implementation assumes that the edge target is always the owner of
 /// the [`InnerEdgeData`]. Calls to [`InnerEdgeData::target`] may otherwise panic.
 /// This also means that [`InnerEdgeData`] cannot be cloned.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InnerEdgeData<N, E> {
     /// The value of the edge.
     pub(crate) value: E,
@@ -46,6 +47,15 @@ impl<N, E> InnerEdgeData<N, E> {
         &self.source
     }
 
+    /// Downgrade the edge to a [`WeakEdge`].
+    ///
+    /// Requires the position of the edge in the target's incoming edges.
+    pub(crate) fn downgrade(&self, target_pos: usize) -> WeakEdge<N, E> {
+        WeakEdge::new(target_pos, self.target.clone())
+    }
+}
+
+impl<N: Hash, E: Hash> InnerEdgeData<N, E> {
     /// The target node of the edge.
     ///
     /// This upgrades the target node and returns a strong reference. It panics
@@ -54,13 +64,6 @@ impl<N, E> InnerEdgeData<N, E> {
         self.target
             .upgrade()
             .expect("target node is no longer alive")
-    }
-
-    /// Downgrade the edge to a [`WeakEdge`].
-    ///
-    /// Requires the position of the edge in the target's incoming edges.
-    pub(crate) fn downgrade(&self, target_pos: usize) -> WeakEdge<N, E> {
-        WeakEdge::new(target_pos, self.target.clone())
     }
 }
 
@@ -88,8 +91,9 @@ impl<N, E> WeakEdge<N, E> {
         Self { index, target }
     }
 
-    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
-        RelWeak::ptr_eq(&this.target, &other.target)
+    #[allow(unused)]
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        RelWeak::ptr_eq(&self.target, &other.target)
     }
 }
 
@@ -146,7 +150,7 @@ impl<N, E> Deref for Edge<N, E> {
     }
 }
 
-impl<N, E> WeakEdge<N, E> {
+impl<N: Hash, E: Hash> WeakEdge<N, E> {
     /// Upgrades to a [`Edge`] if the reference is still valid.
     pub fn upgrade(&self) -> Option<Edge<N, E>> {
         let target = self.target.upgrade()?;

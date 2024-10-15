@@ -2,6 +2,7 @@
 
 mod edge_ref;
 use std::collections::HashSet;
+use std::hash::Hash;
 
 pub use edge_ref::EdgeRef;
 
@@ -22,7 +23,7 @@ impl<'a, N, E> GraphBase for &'a RelRcGraph<N, E> {
 
 impl<'a, N, E> GraphRef for &'a RelRcGraph<N, E> {}
 
-impl<'a, N, E> IntoNeighbors for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoNeighbors for &'a RelRcGraph<N, E> {
     type Neighbors = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors(self, n: Self::NodeId) -> Self::Neighbors {
@@ -30,7 +31,7 @@ impl<'a, N, E> IntoNeighbors for &'a RelRcGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoNeighborsDirected for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoNeighborsDirected for &'a RelRcGraph<N, E> {
     type NeighborsDirected = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors_directed(self, node_ptr: Self::NodeId, d: Direction) -> Self::NeighborsDirected {
@@ -47,7 +48,7 @@ impl<'a, N, E> Data for &'a RelRcGraph<N, E> {
     type EdgeWeight = E;
 }
 
-impl<'a, N, E> IntoEdgeReferences for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoEdgeReferences for &'a RelRcGraph<N, E> {
     type EdgeRef = EdgeRef<'a, N, E>;
 
     type EdgeReferences = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
@@ -60,7 +61,7 @@ impl<'a, N, E> IntoEdgeReferences for &'a RelRcGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoNodeIdentifiers for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoNodeIdentifiers for &'a RelRcGraph<N, E> {
     type NodeIdentifiers = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
@@ -68,7 +69,7 @@ impl<'a, N, E> IntoNodeIdentifiers for &'a RelRcGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdges for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoEdges for &'a RelRcGraph<N, E> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges(self, node_id: Self::NodeId) -> Self::Edges {
@@ -76,7 +77,7 @@ impl<'a, N, E> IntoEdges for &'a RelRcGraph<N, E> {
     }
 }
 
-impl<'a, N, E> IntoEdgesDirected for &'a RelRcGraph<N, E> {
+impl<'a, N: Hash, E: Hash> IntoEdgesDirected for &'a RelRcGraph<N, E> {
     type EdgesDirected = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges_directed(self, node_id: Self::NodeId, d: Direction) -> Self::EdgesDirected {

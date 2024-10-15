@@ -1,6 +1,7 @@
 //! A map function to change the node types of a [`RelRcGraph`].
 
 use std::collections::BTreeMap;
+use std::hash::Hash;
 
 use petgraph::{
     algo::toposort,
@@ -12,12 +13,12 @@ use crate::RelRc;
 
 use super::RelRcGraph;
 
-impl<N, E> RelRcGraph<N, E> {
+impl<N: Hash, E: Hash> RelRcGraph<N, E> {
     /// Apply a map function to the nodes of the graph.
     ///
     /// Note the map function cannot take the node weights by value, since it
     /// cannot be guaranteed that the graph is the sole owner of the nodes.
-    pub fn map<M, F>(
+    pub fn map<M: Hash, F: Hash>(
         &self,
         map_node: impl Fn(&N) -> M,
         map_edge: impl Fn(&E) -> F,

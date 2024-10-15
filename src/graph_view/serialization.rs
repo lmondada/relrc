@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, hash::Hash};
 
 use crate::{RelRc, RelRcGraph};
 
@@ -7,7 +7,7 @@ use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for RelRcGraph<N, E> {
+impl<N: Serialize + Clone + Hash, E: Serialize + Clone + Hash> Serialize for RelRcGraph<N, E> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -17,7 +17,7 @@ impl<N: Serialize + Clone, E: Serialize + Clone> Serialize for RelRcGraph<N, E> 
     }
 }
 
-impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
+impl<'d, N: Deserialize<'d> + Clone + Hash, E: Deserialize<'d> + Clone + Hash> Deserialize<'d>
     for RelRcGraph<N, E>
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -29,28 +29,38 @@ impl<'d, N: Deserialize<'d> + Clone, E: Deserialize<'d> + Clone> Deserialize<'d>
     }
 }
 
+/// TODO, will delete
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeNodeId(pub usize);
 
+/// TODO, will delete
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeNodeData<N, E> {
+    /// TODO, will delete
     pub value: N,
+    /// TODO, will delete
     pub incoming: Vec<SerializeEdgeData<E>>,
 }
 
+/// TODO, will delete
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SerializeEdgeData<E> {
+    /// TODO, will delete
     pub source: SerializeNodeId,
+    /// TODO, will delete
     pub value: E,
 }
 
+/// TODO, will delete
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelRcGraphSerializer<N, E> {
+    /// TODO, will delete
     pub sinks: Vec<SerializeNodeId>,
+    /// TODO, will delete
     pub all_nodes: Vec<SerializeNodeData<N, E>>,
 }
 
-impl<N: Clone, E: Clone> RelRcGraphSerializer<N, E> {
+impl<N: Clone + Hash, E: Clone + Hash> RelRcGraphSerializer<N, E> {
     /// Get the diffs in the graph and create RelRc nodes from them.
     pub fn get_diffs(&self) -> Result<Vec<RelRc<N, E>>, GraphDeserializationError> {
         let mut nodes: Vec<RelRc<N, E>> = Vec::new();
@@ -69,7 +79,7 @@ impl<N: Clone, E: Clone> RelRcGraphSerializer<N, E> {
     }
 }
 
-impl<N: Clone, E: Clone> From<&RelRcGraph<N, E>> for RelRcGraphSerializer<N, E> {
+impl<N: Clone + Hash, E: Clone + Hash> From<&RelRcGraph<N, E>> for RelRcGraphSerializer<N, E> {
     fn from(graph: &RelRcGraph<N, E>) -> Self {
         let mut node_id_map = BTreeMap::new();
 
@@ -125,7 +135,7 @@ pub enum GraphDeserializationError {
     InvalidTopologicalOrder,
 }
 
-impl<N: Clone, E: Clone> TryFrom<RelRcGraphSerializer<N, E>> for RelRcGraph<N, E> {
+impl<N: Clone + Hash, E: Clone + Hash> TryFrom<RelRcGraphSerializer<N, E>> for RelRcGraph<N, E> {
     type Error = GraphDeserializationError;
 
     fn try_from(ser_graph: RelRcGraphSerializer<N, E>) -> Result<Self, Self::Error> {
