@@ -43,9 +43,12 @@ pub enum MPIMode {
     Async,
 }
 
-/// Transfer [`RelRc`] objects between processes using MPI.
+/// Transfer [`RelRc`] objects point-to-point between processes using MPI.
 ///
 /// Will send as many ancestors as necessary from the current process.
+///
+/// Note that at any one time there may be at most one active send and one active
+/// receive between any two processes.
 ///
 /// This is implemented for any type that implements [`mpi::traits::Source`] and
 /// [`mpi::traits::Destination`].

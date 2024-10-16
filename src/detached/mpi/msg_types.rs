@@ -16,11 +16,13 @@ pub(super) enum MPIMessage<N, E> {
 /// We use MPI Tags to "strongly type" communication.
 #[repr(i32)]
 pub(super) enum MPIMessageTag {
+    // tags for messags sent from sender to receiver
     RelRc = 0,
     NodeWeight = 1,
     IncomingEdge = 2,
     EdgeWeight = 3,
 
+    // tags for messages sent from receiver to sender
     RequestRelRc = 100,
 
     Done = 200,

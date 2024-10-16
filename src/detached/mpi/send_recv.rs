@@ -9,6 +9,12 @@ use super::msg_types::{
     MPIDone, MPIIncomingEdge, MPIMessage, MPIMessageTag, MPIRelRc, MPIRequestRelRc,
 };
 
+/// Internal trait capturing the send and receive functionality for MPI
+/// communication.
+///
+/// Generalises over the different MPI modes (standard, buffered, async). Currently
+/// no support for multi-threading, i.e. reading messages from multiple threads
+/// on the same process concurrently is not supported.
 pub(super) trait MPISendRecv<N, E> {
     type ReceiveOut: Future<Output = MPIMessage<N, E>>;
 
