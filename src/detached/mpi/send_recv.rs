@@ -58,7 +58,10 @@ macro_rules! generate_send_match {
                 let msg = MPIAck { hash: hash.into() };
                 $self.0.$send_fn(&msg, tag as i32)
             }
-            MPIMessage::Done => $self.0.$send_fn(&0, tag as i32),
+            MPIMessage::Done => {
+                let msg = MPIAck { hash: 0 };
+                $self.0.$send_fn(&msg, tag as i32)
+            }
         }
     };
 }
