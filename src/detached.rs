@@ -7,10 +7,7 @@
 //! other [`RelRc`] objects.
 
 #[cfg(feature = "mpi")]
-mod mpi;
-
-#[cfg(feature = "mpi")]
-pub use mpi::{MPIRecvRelRc, MPISendRelRc};
+pub mod mpi;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
