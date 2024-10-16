@@ -5,22 +5,23 @@ use std::{
 
 use mpi::traits::{Destination, Equivalence, Source};
 
-use super::msg_types::{
-    MPIDone, MPIIncomingEdge, MPIMessage, MPIMessageTag, MPIRelRc, MPIRequestRelRc,
-};
+use super::msg_types::{MPIAck, MPIIncomingEdge, MPIMessage, MPIMessageTag, MPIRelRc};
 
 /// Internal trait capturing the send and receive functionality for MPI
 /// communication.
 ///
-/// Generalises over the different MPI modes (standard, buffered, async). Currently
-/// no support for multi-threading, i.e. reading messages from multiple threads
-/// on the same process concurrently is not supported.
+/// Generalises over the different MPI modes (standard, buffered, async).
 pub(super) trait MPISendRecv<N, E> {
     type ReceiveOut: Future<Output = MPIMessage<N, E>>;
 
+    /// Send a message.
     fn send(&self, msg: &MPIMessage<N, E>);
 
-    fn receive(&self) -> Self::ReceiveOut;
+    /// Receive a message with the given tag.
+    ///
+    /// The type returned by the future is guaranteed to correspond to the tag
+    /// passed as argument.
+    fn receive(&self, tag: MPIMessageTag) -> Self::ReceiveOut;
 }
 
 /// Send and receive MPI messages using standard communication.
@@ -32,19 +33,32 @@ pub(super) struct MPIBufferedSendRecv<'a, T: Source + Destination>(pub(super) &'
 /// Send and receive MPI messages using asynchronous communication.
 pub(super) struct MPIAsyncSendRecv<'a, T: Source + Destination>(pub(super) &'a T);
 
+/// Massage the MPIMessage into the appropriate MPI message type and send it
+/// using `$send_fn`.
 macro_rules! generate_send_match {
     ($self:expr, $msg:expr, $send_fn:ident) => {
+        let tag = $msg.tag();
         match $msg {
-            MPIMessage::RelRc(msg) => $self.0.$send_fn(msg, MPIMessageTag::RelRc as i32),
-            MPIMessage::NodeWeight(msg) => $self.0.$send_fn(msg, MPIMessageTag::NodeWeight as i32),
-            MPIMessage::IncomingEdge(msg) => {
-                $self.0.$send_fn(msg, MPIMessageTag::IncomingEdge as i32)
+            &MPIMessage::RelRc(hash) => {
+                let msg = MPIRelRc { hash: hash.into() };
+                $self.0.$send_fn(&msg, tag as i32)
             }
-            MPIMessage::EdgeWeight(msg) => $self.0.$send_fn(msg, MPIMessageTag::EdgeWeight as i32),
-            MPIMessage::RequestRelRc(msg) => {
-                $self.0.$send_fn(msg, MPIMessageTag::RequestRelRc as i32)
+            MPIMessage::NodeWeight(node_weight) => $self.0.$send_fn(node_weight, tag as i32),
+            MPIMessage::IncomingEdge(incoming_edges) => {
+                let msg = incoming_edges
+                    .iter()
+                    .map(|&h| MPIIncomingEdge {
+                        source_hash: h.into(),
+                    })
+                    .collect::<Vec<_>>();
+                $self.0.$send_fn(&msg, tag as i32)
             }
-            MPIMessage::Done => $self.0.$send_fn(&MPIDone(true), MPIMessageTag::Done as i32),
+            MPIMessage::EdgeWeight(edge_weight) => $self.0.$send_fn(edge_weight, tag as i32),
+            &MPIMessage::RequestRelRc(hash) => {
+                let msg = MPIAck { hash: hash.into() };
+                $self.0.$send_fn(&msg, tag as i32)
+            }
+            MPIMessage::Done => $self.0.$send_fn(&0, tag as i32),
         }
     };
 }
@@ -58,8 +72,8 @@ impl<'a, T: Source + Destination, N: Equivalence, E: Equivalence> MPISendRecv<N,
         generate_send_match!(self, msg, send_with_tag);
     }
 
-    fn receive(&self) -> Self::ReceiveOut {
-        let (msg, status) = self.0.matched_probe();
+    fn receive(&self, tag: MPIMessageTag) -> Self::ReceiveOut {
+        let (msg, status) = self.0.matched_probe_with_tag(tag as i32);
         future::ready(extract_message(msg, status))
     }
 }
@@ -73,8 +87,8 @@ impl<'a, T: Source + Destination, N: Equivalence, E: Equivalence> MPISendRecv<N,
         generate_send_match!(self, msg, buffered_send_with_tag);
     }
 
-    fn receive(&self) -> Self::ReceiveOut {
-        let (msg, status) = self.0.matched_probe();
+    fn receive(&self, tag: MPIMessageTag) -> Self::ReceiveOut {
+        let (msg, status) = self.0.matched_probe_with_tag(tag as i32);
         future::ready(extract_message(msg, status))
     }
 }
@@ -89,9 +103,10 @@ impl<'a, T: Source + Destination, N: Equivalence, E: Equivalence> MPISendRecv<N,
         generate_send_match!(self, msg, send_with_tag);
     }
 
-    fn receive(&self) -> Self::ReceiveOut {
+    fn receive(&self, tag: MPIMessageTag) -> Self::ReceiveOut {
         ReceiveMessageFuture {
             process: self.0,
+            tag,
             _phantom: PhantomData,
         }
     }
@@ -105,7 +120,7 @@ fn extract_message<N: Equivalence, E: Equivalence>(
     match tag {
         MPIMessageTag::RelRc => {
             let (msg, _) = msg.matched_receive::<MPIRelRc>();
-            MPIMessage::RelRc(msg)
+            msg.into()
         }
         MPIMessageTag::NodeWeight => {
             let (msg, _) = msg.matched_receive::<N>();
@@ -116,19 +131,15 @@ fn extract_message<N: Equivalence, E: Equivalence>(
             let n_elems = status.count(MPIIncomingEdge::equivalent_datatype()) as usize;
             let mut contents = vec![default_edge; n_elems];
             msg.matched_receive_into(&mut contents);
-            MPIMessage::IncomingEdge(contents)
+            contents.into()
         }
         MPIMessageTag::EdgeWeight => {
             let (msg, _) = msg.matched_receive::<E>();
             MPIMessage::EdgeWeight(msg)
         }
-        MPIMessageTag::RequestRelRc => {
-            let (msg, _) = msg.matched_receive::<MPIRequestRelRc>();
-            MPIMessage::RequestRelRc(msg)
-        }
-        MPIMessageTag::Done => {
-            msg.matched_receive::<MPIDone>();
-            MPIMessage::Done
+        MPIMessageTag::Ack => {
+            let (msg, _) = msg.matched_receive::<MPIAck>();
+            msg.into()
         }
     }
 }
@@ -136,6 +147,7 @@ fn extract_message<N: Equivalence, E: Equivalence>(
 /// A future that probes for a new MPI message.
 pub(super) struct ReceiveMessageFuture<'a, T, M> {
     process: &'a T,
+    tag: MPIMessageTag,
     _phantom: PhantomData<M>,
 }
 
@@ -148,7 +160,10 @@ impl<'a, T: Source + Destination, N: Equivalence, E: Equivalence> Future
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        match self.process.immediate_matched_probe() {
+        match self
+            .process
+            .immediate_matched_probe_with_tag(self.tag as i32)
+        {
             Some((msg, status)) => std::task::Poll::Ready(extract_message(msg, status)),
             None => {
                 // Not ready yet, register waker and return Pending

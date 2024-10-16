@@ -3,11 +3,12 @@ use mpi::{datatype::DatatypeRef, traits::Equivalence};
 use crate::hash_id::RelRcHash;
 
 pub(super) enum MPIMessage<N, E> {
-    RelRc(MPIRelRc),
+    RelRc(RelRcHash),
     NodeWeight(N),
-    IncomingEdge(Vec<MPIIncomingEdge>),
+    IncomingEdge(Vec<RelRcHash>),
     EdgeWeight(E),
-    RequestRelRc(MPIRequestRelRc),
+    // both below correspond to tag Ack (distinguished by a non-zero value)
+    RequestRelRc(RelRcHash),
     Done,
 }
 
@@ -15,6 +16,7 @@ pub(super) enum MPIMessage<N, E> {
 ///
 /// We use MPI Tags to "strongly type" communication.
 #[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum MPIMessageTag {
     // tags for messags sent from sender to receiver
     RelRc = 0,
@@ -23,9 +25,21 @@ pub(super) enum MPIMessageTag {
     EdgeWeight = 3,
 
     // tags for messages sent from receiver to sender
-    RequestRelRc = 100,
+    /// Acknowledge the receipt of a message. If the value of Ack is non-zero,
+    /// then further [`RelRc`] are requested.
+    Ack = 100,
+}
 
-    Done = 200,
+impl<N, E> MPIMessage<N, E> {
+    pub(super) fn tag(&self) -> MPIMessageTag {
+        match self {
+            MPIMessage::RelRc { .. } => MPIMessageTag::RelRc,
+            MPIMessage::NodeWeight { .. } => MPIMessageTag::NodeWeight,
+            MPIMessage::IncomingEdge { .. } => MPIMessageTag::IncomingEdge,
+            MPIMessage::EdgeWeight { .. } => MPIMessageTag::EdgeWeight,
+            MPIMessage::RequestRelRc { .. } | MPIMessage::Done => MPIMessageTag::Ack,
+        }
+    }
 }
 
 impl TryFrom<i32> for MPIMessageTag {
@@ -37,18 +51,9 @@ impl TryFrom<i32> for MPIMessageTag {
             1 => Ok(MPIMessageTag::NodeWeight),
             2 => Ok(MPIMessageTag::IncomingEdge),
             3 => Ok(MPIMessageTag::EdgeWeight),
-            100 => Ok(MPIMessageTag::RequestRelRc),
-            200 => Ok(MPIMessageTag::Done),
+            100 => Ok(MPIMessageTag::Ack),
             _ => Err(()),
         }
-    }
-}
-
-unsafe impl Equivalence for MPIMessageTag {
-    type Out = DatatypeRef<'static>;
-
-    fn equivalent_datatype() -> Self::Out {
-        u8::equivalent_datatype()
     }
 }
 
@@ -83,11 +88,11 @@ unsafe impl Equivalence for MPIIncomingEdge {
 }
 
 #[repr(transparent)]
-pub(super) struct MPIRequestRelRc {
+pub(super) struct MPIAck {
     pub(super) hash: usize,
 }
 
-unsafe impl Equivalence for MPIRequestRelRc {
+unsafe impl Equivalence for MPIAck {
     type Out = DatatypeRef<'static>;
 
     fn equivalent_datatype() -> Self::Out {
@@ -95,38 +100,25 @@ unsafe impl Equivalence for MPIRequestRelRc {
     }
 }
 
-#[repr(transparent)]
-pub(super) struct MPIDone(pub(super) bool); // ignore value
-
-unsafe impl Equivalence for MPIDone {
-    type Out = DatatypeRef<'static>;
-
-    fn equivalent_datatype() -> Self::Out {
-        bool::equivalent_datatype()
+impl<N, E> From<MPIRelRc> for MPIMessage<N, E> {
+    fn from(val: MPIRelRc) -> Self {
+        MPIMessage::RelRc(val.hash.into())
     }
 }
 
-impl<N, E> Into<MPIMessage<N, E>> for MPIRelRc {
-    fn into(self) -> MPIMessage<N, E> {
-        MPIMessage::RelRc(self)
+impl<N, E> From<Vec<MPIIncomingEdge>> for MPIMessage<N, E> {
+    fn from(val: Vec<MPIIncomingEdge>) -> Self {
+        MPIMessage::IncomingEdge(val.into_iter().map(|e| e.source_hash.into()).collect())
     }
 }
 
-impl<N, E> Into<MPIMessage<N, E>> for Vec<MPIIncomingEdge> {
-    fn into(self) -> MPIMessage<N, E> {
-        MPIMessage::IncomingEdge(self)
-    }
-}
-
-impl<N, E> Into<MPIMessage<N, E>> for MPIRequestRelRc {
-    fn into(self) -> MPIMessage<N, E> {
-        MPIMessage::RequestRelRc(self)
-    }
-}
-
-impl<N, E> Into<MPIMessage<N, E>> for MPIDone {
-    fn into(self) -> MPIMessage<N, E> {
-        MPIMessage::Done
+impl<N, E> From<MPIAck> for MPIMessage<N, E> {
+    fn from(val: MPIAck) -> Self {
+        if val.hash == 0 {
+            MPIMessage::Done
+        } else {
+            MPIMessage::RequestRelRc(val.hash.into())
+        }
     }
 }
 

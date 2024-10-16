@@ -14,7 +14,7 @@ use std::hash::Hash;
 use futures::executor;
 use itertools::Itertools;
 use mpi::traits::{Destination, Equivalence, Source};
-use msg_types::{MPIIncomingEdge, MPIMessage, MPIRelRc, MPIRequestRelRc};
+use msg_types::{MPIIncomingEdge, MPIMessage, MPIMessageTag, MPIRelRc};
 use send_recv::{MPIAsyncSendRecv, MPIBufferedSendRecv, MPISendRecv, MPIStandardSendRecv};
 
 use crate::{detached::Detached, hash_id::RelRcHash, RelRc};
@@ -148,16 +148,15 @@ async fn send_relrc<N: Hash + Clone, E: Hash + Clone>(
 
     // Now wait for a confirmation or send further objects if requested
     loop {
-        let msg = dest.receive().await;
+        let msg = dest.receive(MPIMessageTag::Ack).await;
         if matches!(msg, MPIMessage::Done) {
             break;
         }
 
         // Send the requested object
-        let MPIMessage::RequestRelRc(MPIRequestRelRc { hash }) = msg else {
+        let MPIMessage::RequestRelRc(hash) = msg else {
             panic!("Received unexpected message");
         };
-        let hash = RelRcHash::from(hash);
         mpi_send(dest, hash, &detached.all_data[&hash]);
     }
 }
@@ -179,10 +178,8 @@ async fn recv_relrc<N: Hash + Clone, E: Hash + Clone>(
                 .required_hashes()
                 .find(|hash| !attach_to.contains_key(hash))
                 .expect("cannot attach but all required objects are known");
-            let msg = MPIRequestRelRc {
-                hash: first_unknown_hash.into(),
-            };
-            source.send(&msg.into());
+            let msg = MPIMessage::RequestRelRc(first_unknown_hash);
+            source.send(&msg);
         }
 
         // Receive the object (either first time or just requested)
@@ -238,26 +235,28 @@ fn mpi_send<N: Clone, E: Clone>(
 /// Receive a single [`RelRc`] object from `source` according to our protocol.
 async fn mpi_recv<N, E>(source: &impl MPISendRecv<N, E>) -> (RelRcHash, DetachedInnerData<N, E>) {
     // 0. Receive the RelRc message
-    let MPIMessage::RelRc(msg) = source.receive().await else {
+    let MPIMessage::RelRc(hash) = source.receive(MPIMessageTag::RelRc).await else {
         panic!("Expected RelRc message");
     };
-    let hash = RelRcHash::from(msg);
 
     // 1. Receive all the node weights (just one atm)
-    let MPIMessage::NodeWeight(node_weight) = source.receive().await else {
+    let MPIMessage::NodeWeight(node_weight) = source.receive(MPIMessageTag::NodeWeight).await
+    else {
         panic!("Expected node weight message");
     };
 
     // 2. Receive all the incoming edges
-    let MPIMessage::IncomingEdge(incoming_edges) = source.receive().await else {
+    let MPIMessage::IncomingEdge(incoming_edges) =
+        source.receive(MPIMessageTag::IncomingEdge).await
+    else {
         panic!("Expected incoming edge message");
     };
 
     // 3. Receive all the edge weights
     let mut incoming = Vec::with_capacity(incoming_edges.len());
-    for edge in incoming_edges {
-        let source_hash = RelRcHash::from(edge.source_hash);
-        let MPIMessage::EdgeWeight(edge_weight) = source.receive().await else {
+    for source_hash in incoming_edges {
+        let MPIMessage::EdgeWeight(edge_weight) = source.receive(MPIMessageTag::EdgeWeight).await
+        else {
             panic!("Expected edge weight message");
         };
         incoming.push((source_hash, edge_weight));
