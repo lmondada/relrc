@@ -15,11 +15,14 @@ petgraph = { version = "0.6.5", optional = true }
 serde = { version = "1.0.204", optional = true, features = ["derive"] }
 thiserror = "1.0.63"
 itertools = "0.13.0"
+futures = { version = "0.3.31", optional = true, default-features = false, features = [
+    "executor",
+] }
 
 [features]
 petgraph = ["dep:petgraph"]
 serde = ["dep:serde"]
-mpi = ["dep:mpi"]
+mpi = ["dep:mpi", "dep:futures"]
 
 [dev-dependencies]
 insta = "1.39.0"
