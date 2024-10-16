@@ -70,7 +70,7 @@ impl<N: Clone + Hash, E: Clone + Hash> RelRcGraphSerializer<N, E> {
                 return Err(GraphDeserializationError::InvalidTopologicalOrder);
             }
             let parents = incoming
-                .into_iter()
+                .iter()
                 .map(|ser_edge| (nodes[ser_edge.source.0].clone(), ser_edge.value.clone()));
             let node = RelRc::with_parents(value.clone(), parents);
             nodes.push(node);

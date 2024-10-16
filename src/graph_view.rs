@@ -145,7 +145,7 @@ impl<N: Hash, E: Hash> RelRcGraph<N, E> {
                 let self_edges: BTreeSet<_> = self.outgoing_edges(node).collect();
                 let other_edges: Vec<_> = other
                     .outgoing_edges(node)
-                    .filter(|e| !self_edges.contains(&e))
+                    .filter(|e| !self_edges.contains(e))
                     .map(|e| other.get_edge(e))
                     .collect();
                 let self_edges: Vec<_> = self_edges.into_iter().map(|e| self.get_edge(e)).collect();
