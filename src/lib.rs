@@ -14,7 +14,7 @@ pub use graph_view::{EdgeId, NodeId, RelRcGraph};
 pub use node::RelRc;
 
 #[cfg(feature = "mpi")]
-pub use detached::{MPIRecvRelRc, MPISendRelRc};
+pub use detached::mpi;
 
 // Weak references are not exported publicly.
 pub(crate) use edge::WeakEdge;

@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use mpi::traits::Communicator;
-use relrc::{MPIRecvRelRc, MPISendRelRc, RelRc};
+use relrc::{
+    mpi::{MPIMode, RelRcCommunicator},
+    RelRc,
+};
 
 fn count_ancestors(relrc: &RelRc<usize, usize>) -> usize {
     relrc.detach(&BTreeSet::new()).n_ancestors()
@@ -50,12 +53,16 @@ fn main() {
     // RelRc objects in process 1.
     match rank {
         0 => {
-            world.process_at_rank(1).send_relrc(&all_relrcs[3]);
+            world
+                .process_at_rank(1)
+                .send_relrc(&all_relrcs[3], MPIMode::default());
             println!("rank {rank}: sent grandchild");
         }
         1 => {
             let left_child2 = all_relrcs[1].clone();
-            let received = world.process_at_rank(0).recv_relrc(all_relrcs.clone());
+            let received = world
+                .process_at_rank(0)
+                .recv_relrc(all_relrcs.clone(), MPIMode::default());
             println!("rank {rank}: received grandchild");
 
             assert_eq!(count_ancestors(&received), 4);
