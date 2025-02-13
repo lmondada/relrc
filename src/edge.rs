@@ -106,20 +106,12 @@ impl<N, E> WeakEdge<N, E> {
 /// Will keep the edge and the target object of the edge alive for as long as this
 /// reference is in scope.
 #[derive(Debug)]
+#[derive_where(Clone, Hash)]
 pub struct Edge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
     index: usize,
     /// The target node (and owner) of the edge.
     target: RelRc<N, E>,
-}
-
-impl<N, E> Clone for Edge<N, E> {
-    fn clone(&self) -> Self {
-        Edge {
-            index: self.index,
-            target: self.target.clone(),
-        }
-    }
 }
 
 impl<N, E> Edge<N, E> {
