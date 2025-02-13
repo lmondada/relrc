@@ -79,7 +79,7 @@ impl<N: Hash, E: Hash> InnerEdgeData<N, E> {
 ///
 /// Upgrades to [`Edge`] if the reference is valid.
 #[derive(Debug)]
-pub(crate) struct WeakEdge<N, E> {
+pub struct WeakEdge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
     pub(crate) index: usize,
     /// The target node (and owner) of the edge.
@@ -91,7 +91,7 @@ impl<N, E> WeakEdge<N, E> {
         Self { index, target }
     }
 
-    #[allow(unused)]
+    /// Check if two weak references point to the same underlying data
     pub fn ptr_eq(&self, other: &Self) -> bool {
         RelWeak::ptr_eq(&self.target, &other.target)
     }

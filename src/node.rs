@@ -123,7 +123,7 @@ impl<N, E> RelRc<N, E> {
 ///
 /// Upgrades to [`RelRc`] if the reference is valid.
 #[derive(Debug, From)]
-pub(crate) struct RelWeak<N, E>(Weak<InnerData<N, E>>);
+pub struct RelWeak<N, E>(Weak<InnerData<N, E>>);
 
 impl<N, E> Clone for RelWeak<N, E> {
     fn clone(&self) -> Self {
@@ -139,10 +139,12 @@ impl<N: Hash, E: Hash> RelWeak<N, E> {
 }
 
 impl<N, E> RelWeak<N, E> {
+    /// Check if two weak references point to the same underlying data
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Weak::ptr_eq(&self.0, &other.0)
     }
 
+    /// Get a raw pointer to the underlying data.
     pub fn as_ptr(&self) -> *const InnerData<N, E> {
         Weak::as_ptr(&self.0)
     }

@@ -16,6 +16,5 @@ pub use node::RelRc;
 #[cfg(feature = "mpi")]
 pub use detached::mpi;
 
-// Weak references are not exported publicly.
-pub(crate) use edge::WeakEdge;
-pub(crate) use node::RelWeak;
+pub use edge::WeakEdge;
+pub use node::RelWeak;
