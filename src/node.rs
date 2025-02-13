@@ -9,6 +9,7 @@ use std::{
 };
 
 use derive_more::From;
+use derive_where::derive_where;
 
 use crate::hash_id::RelRcHash;
 use crate::{edge::InnerEdgeData, Edge, WeakEdge};
@@ -34,18 +35,11 @@ use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 /// Every [`RelRc`] object is assigned a unique hash-based identifier. For this
 /// reason, object creation operations will require N and E generics to be hashable.
 #[derive(Debug)]
+#[derive_where(Clone, Hash)]
 pub struct RelRc<N, E> {
+    #[derive_where(skip)] // skip hashing this field
     inner: Rc<InnerData<N, E>>,
     hash_id: RelRcHash,
-}
-
-impl<N, E> Clone for RelRc<N, E> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            hash_id: self.hash_id,
-        }
-    }
 }
 
 impl<N: Hash, E: Hash> From<Rc<InnerData<N, E>>> for RelRc<N, E> {
@@ -123,13 +117,8 @@ impl<N, E> RelRc<N, E> {
 ///
 /// Upgrades to [`RelRc`] if the reference is valid.
 #[derive(Debug, From)]
+#[derive_where(Clone)]
 pub struct RelWeak<N, E>(Weak<InnerData<N, E>>);
-
-impl<N, E> Clone for RelWeak<N, E> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
 
 impl<N: Hash, E: Hash> RelWeak<N, E> {
     /// Upgrades to a [`Node`] if the reference is still valid.
@@ -150,13 +139,19 @@ impl<N, E> RelWeak<N, E> {
     }
 }
 
+impl<N, E> Hash for RelWeak<N, E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_ptr().hash(state);
+    }
+}
+
 /// Data within a [`RelRc`] object.
 ///
 /// Keeps track of its incident edges. Sole owner of the incoming edges, i.e. the
 /// edges will exist if and only if the node exists. References to outgoing edges
 /// are weak references, thus they may get deleted if all downstream nodes have
 /// been deleted.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InnerData<N, E> {
     /// The value of the node.
     value: N,

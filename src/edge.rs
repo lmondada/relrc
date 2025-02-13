@@ -3,6 +3,8 @@
 use std::hash::Hash;
 use std::ops::Deref;
 
+use derive_where::derive_where;
+
 use crate::{RelRc, RelWeak};
 
 /// A parent-child relationship between two [`RelRc`] objects.
@@ -14,7 +16,8 @@ use crate::{RelRc, RelWeak};
 /// Note: the implementation assumes that the edge target is always the owner of
 /// the [`InnerEdgeData`]. Calls to [`InnerEdgeData::target`] may otherwise panic.
 /// This also means that [`InnerEdgeData`] cannot be cloned.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+#[derive_where(Clone, Hash; E)]
 pub struct InnerEdgeData<N, E> {
     /// The value of the edge.
     pub(crate) value: E,
@@ -79,6 +82,7 @@ impl<N: Hash, E: Hash> InnerEdgeData<N, E> {
 ///
 /// Upgrades to [`Edge`] if the reference is valid.
 #[derive(Debug)]
+#[derive_where(Clone, Hash)]
 pub struct WeakEdge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
     pub(crate) index: usize,
@@ -94,15 +98,6 @@ impl<N, E> WeakEdge<N, E> {
     /// Check if two weak references point to the same underlying data
     pub fn ptr_eq(&self, other: &Self) -> bool {
         RelWeak::ptr_eq(&self.target, &other.target)
-    }
-}
-
-impl<N, E> Clone for WeakEdge<N, E> {
-    fn clone(&self) -> Self {
-        Self {
-            index: self.index,
-            target: self.target.clone(),
-        }
     }
 }
 
