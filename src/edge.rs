@@ -97,7 +97,11 @@ impl<N, E> WeakEdge<N, E> {
 
     /// Check if two weak references point to the same underlying data
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        RelWeak::ptr_eq(&self.target, &other.target)
+        self.index == other.index && RelWeak::ptr_eq(&self.target, &other.target)
+    }
+    /// The edge target as a weak reference.
+    pub fn target(&self) -> &RelWeak<N, E> {
+        &self.target
     }
 }
 
