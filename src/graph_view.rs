@@ -112,7 +112,7 @@ impl<N: Hash, E: Hash> RelRcGraph<N, E> {
     /// Get all outgoing edge IDs from a node.
     pub fn outgoing_edges(&self, node_id: NodeId<N, E>) -> impl Iterator<Item = EdgeId<N, E>> + '_ {
         let node = self.get_node(node_id);
-        let edges = node.all_outgoing_weak().to_vec();
+        let edges = node.all_outgoing_weak_ref().to_vec();
         edges
             .into_iter()
             .filter(|e| self.all_nodes().contains(&(&e.target).into()))

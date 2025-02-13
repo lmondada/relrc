@@ -84,7 +84,7 @@ impl<'a, N: Hash, E: Hash> IntoEdgesDirected for &'a RelRcGraph<N, E> {
         let node = self.get_node(node_id);
         match d {
             Direction::Outgoing => Box::new(
-                node.all_outgoing_weak()
+                node.all_outgoing_weak_ref()
                     .to_vec()
                     .into_iter()
                     .map(|e| unsafe { EdgeRef::from_weak_unchecked(e.clone()) }),

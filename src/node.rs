@@ -111,6 +111,11 @@ impl<N, E> RelRc<N, E> {
     pub fn hash_id(&self) -> RelRcHash {
         self.hash_id
     }
+
+    /// Downgrade the node to a weak reference.
+    pub fn downgrade(&self) -> RelWeak<N, E> {
+        RelWeak(Rc::downgrade(&self.inner))
+    }
 }
 
 /// A weak reference to a [`RelRc`] object.
@@ -212,6 +217,13 @@ impl<N, E> InnerData<N, E> {
         self.incoming.get(index)
     }
 
+    /// The i-th incoming edge to the node as a weak reference.
+    pub fn incoming_weak(&self, index: usize) -> Option<WeakEdge<N, E>> {
+        self.incoming
+            .get(index)
+            .map(|e| WeakEdge::new(index, e.target.clone()))
+    }
+
     /// The i-th parent of the object.
     pub fn parent(&self, index: usize) -> Option<&RelRc<N, E>> {
         self.incoming.get(index).map(|e| e.source())
@@ -227,8 +239,27 @@ impl<N, E> InnerData<N, E> {
         &self.incoming
     }
 
-    pub(crate) fn all_outgoing_weak(&self) -> Ref<[WeakEdge<N, E>]> {
+    /// All incoming edges as weak references.
+    pub fn all_incoming_weak(&self) -> impl ExactSizeIterator<Item = WeakEdge<N, E>> + '_ {
+        self.all_incoming()
+            .iter()
+            .enumerate()
+            .map(|(i, e)| WeakEdge::new(i, e.target.clone()))
+    }
+
+    /// All outgoing edges as weak references.
+    ///
+    /// This makes a borrow to the underlying `RefCell`, meaning that no
+    /// new RelRc objects can be created for as long as the Ref is in scope.
+    ///
+    /// Don't expose publicly to avoid this issue.
+    pub(crate) fn all_outgoing_weak_ref(&self) -> Ref<[WeakEdge<N, E>]> {
         Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
+    }
+
+    /// All outgoing edges as weak references.
+    pub fn all_outgoing_weak(&self) -> Vec<WeakEdge<N, E>> {
+        self.all_outgoing_weak_ref().to_vec()
     }
 
     /// Iterate over all parents of the object.
