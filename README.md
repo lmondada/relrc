@@ -6,14 +6,20 @@ of `Rc`) will stay alive for as long as there are references either to it or
 to one of its descendants.
 
 ### Can't I just keep a list of `Rc`s within my `Rc`?
+
 Yes---and that is what this crate does under the hood. This crate however
 keeps track of additional data for you, thus providing additional functionalities:
- - dependencies can be traversed backward: [`RelRc::all_children(v)`] will
-   return all objects (children) that depend on `v` (parent).
- - data can be stored on the dependency edges themselves.
- - the resulting directed acyclic dependency graph is exposed with [`RelRcGraph`]
-   and can be traversed using [`petgraph`] (make sure to activate the
-   `petgraph` feature).
+
+- dependencies can be traversed backward: [`RelRc::all_children(v)`] will
+  return all objects (children) that depend on `v` (parent).
+- data can be stored on the dependency edges themselves.
+- the resulting directed acyclic dependency graph is exposed with [`HistoryGraph`]
+  and can be traversed using [`petgraph`] (make sure to activate the
+  `petgraph` feature).
+- Nodes in the [`HistoryGraph`] have a notion of equivalence: any two `RelRc`
+  can be compared for equivalence using a [`EquivalenceResolver`]. The graph
+  then automatically performs deduplication of equivalent nodes, so that
+  multiple history graphs can be merged seamlessly.
 
 This crate can also be viewed as a directed acyclic graph (DAG) implementation,
 in which nodes are automatically removed when they and their descendants go out
@@ -23,6 +29,7 @@ that are created can be viewed as descendants of previously created objects.
 Examples include commits in a git history, Merkle trees...
 
 ### Node immutability
+
 By design and just like [`Rc`], a [`RelRc`] and its parents are immutable once created.
 New [`RelRc`] can be added as descendants of the node, but the node cannot
 be modified once it has been created and will exist until all references to
@@ -32,6 +39,7 @@ This ensures that no cycles can be created, removing the need for cyclicity chec
 If node or edge values need to be mutable, consider using `RefCell`s.
 
 ### Example
+
 ```rust
 use relrc::RelRc;
 
