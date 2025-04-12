@@ -5,31 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - tbd
+## 0.4.0 - 2025-04-12
 
 ### Added
 
-- Replaced `RelRcGraph` with a new `HistoryGraph`
-- Generics `N` and `E` no longer require `Hash`. Instead implement `EquivalenceResolver` for your types to enable graph merging.
-- `Detached` was removed. Use `RelRc::to_serialized` and `RelRc::from_serialized` to convert `RelRc` into a serializable format.
-- New `RelRcGraph::from_sinks_while` function for more general graph construction.
-- `RelRcGraph` no longer requires sources. Any induced subgraph of `RelRc` objects is now supported.
-- `RelRc::all_children` and `RelRc::all_parents` now return `ExactSizeIterator`s.
-- `RelRcGraph::map` to create a new graph with mapped node and edge weights.
-- `RelRcGraph::outgoing_edges` to get all outgoing edge IDs from a node.
-- `RelRc::detach` and `RelRc::attach` to attach and detach a `RelRc` object from its parents. This allows to "move" objects by detaching them from one graph and attaching them to another. In the future, will be used for serialisation.
-- Every `RelRc` object now has a unique `RelRcHash` hash ID, retrievable via `RelRc::hash_id`. Similar to git's commit hashes.
+- Serialisation. Use `RelRc::to_serialized` and `RelRc::from_serialized` to convert `RelRc` into a serializable format.
+- There is a notion of semantic equivalence between nodes. Implement `EquivalenceResolver` for your types to enable deduplication of nodes in `HistoryGraph`.
 
 ### Changed
 
-- `GraphView` is renamed to `RelRcGraph`.
-- `RelRcGraph::merge` now takes a callback called on every node that is merged.
-- Using instance methods instead of static functions for RelRc.
-- `RelRc` requires `Hash` to construct, as hash values are computed and memoised at construction time.
-
-### Removed
-
-- `RelRcGraph::sources` was removed. If required traverse all nodes and filter for `n_incoming == 0`.
+- Replaced `GraphView` with a new `HistoryGraph`
+- Using instance methods instead of static functions for `RelRc`.
 
 ## [0.2.2] - 2024-08-08
 

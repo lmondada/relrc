@@ -1,6 +1,6 @@
 [package]
 name = "relrc"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Reference counted pointers, with relationships to other pointers."
 readme = "README.md"
