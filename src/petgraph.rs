@@ -2,7 +2,6 @@
 
 mod edge_ref;
 use std::collections::HashSet;
-use std::hash::Hash;
 
 pub use edge_ref::EdgeRef;
 
@@ -14,16 +13,16 @@ use petgraph::{
     Direction,
 };
 
-use crate::{EdgeId, NodeId, RelRcGraph};
+use crate::{EdgeId, HistoryGraph, NodeId};
 
-impl<'a, N, E> GraphBase for &'a RelRcGraph<N, E> {
-    type EdgeId = EdgeId<N, E>;
-    type NodeId = NodeId<N, E>;
+impl<'a, N, E, R> GraphBase for &'a HistoryGraph<N, E, R> {
+    type EdgeId = EdgeId;
+    type NodeId = NodeId;
 }
 
-impl<'a, N, E> GraphRef for &'a RelRcGraph<N, E> {}
+impl<'a, N, E, R> GraphRef for &'a HistoryGraph<N, E, R> {}
 
-impl<'a, N: Hash, E: Hash> IntoNeighbors for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> IntoNeighbors for &'a HistoryGraph<N, E, R> {
     type Neighbors = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn neighbors(self, n: Self::NodeId) -> Self::Neighbors {
@@ -31,73 +30,73 @@ impl<'a, N: Hash, E: Hash> IntoNeighbors for &'a RelRcGraph<N, E> {
     }
 }
 
-impl<'a, N: Hash, E: Hash> IntoNeighborsDirected for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> IntoNeighborsDirected for &'a HistoryGraph<N, E, R> {
     type NeighborsDirected = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
-    fn neighbors_directed(self, node_ptr: Self::NodeId, d: Direction) -> Self::NeighborsDirected {
-        let node = self.get_node(node_ptr);
+    fn neighbors_directed(self, node_id: Self::NodeId, d: Direction) -> Self::NeighborsDirected {
         match d {
-            Direction::Outgoing => Box::new(node.all_children().map(|c| (&c).into())),
-            Direction::Incoming => Box::new(node.all_parents().map(|c| c.into())),
+            Direction::Outgoing => Box::new(self.outgoing_edges(node_id).map(|e| e.target)),
+            Direction::Incoming => Box::new(self.incoming_edges(node_id).map(|e| self.source(e))),
         }
     }
 }
 
-impl<'a, N, E> Data for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> Data for &'a HistoryGraph<N, E, R> {
     type NodeWeight = N;
     type EdgeWeight = E;
 }
 
-impl<'a, N: Hash, E: Hash> IntoEdgeReferences for &'a RelRcGraph<N, E> {
-    type EdgeRef = EdgeRef<'a, N, E>;
+impl<'a, N, E, R> IntoEdgeReferences for &'a HistoryGraph<N, E, R> {
+    type EdgeRef = EdgeRef<'a, N, E, R>;
 
     type EdgeReferences = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edge_references(self) -> Self::EdgeReferences {
-        Box::new(self.all_nodes().iter().flat_map(|&node_id| {
-            let node = self.get_node(node_id);
-            (0..node.n_incoming()).map(move |i| unsafe { EdgeRef::new_unchecked(node_id, i) })
+        Box::new(self.all_node_ids().flat_map(move |node_id| {
+            self.incoming_edges(node_id)
+                .map(move |edge_id| EdgeRef::new(edge_id, self))
         }))
     }
 }
 
-impl<'a, N: Hash, E: Hash> IntoNodeIdentifiers for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> IntoNodeIdentifiers for &'a HistoryGraph<N, E, R> {
     type NodeIdentifiers = Box<dyn Iterator<Item = Self::NodeId> + 'a>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
-        Box::new(self.all_nodes().iter().copied())
+        Box::new(self.all_node_ids())
     }
 }
 
-impl<'a, N: Hash, E: Hash> IntoEdges for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> IntoEdges for &'a HistoryGraph<N, E, R> {
     type Edges = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges(self, node_id: Self::NodeId) -> Self::Edges {
-        Box::new(self.outgoing_edges(node_id).map(|e| e.into()))
+        Box::new(
+            self.outgoing_edges(node_id)
+                .map(|edge_id| EdgeRef::new(edge_id, self)),
+        )
     }
 }
 
-impl<'a, N: Hash, E: Hash> IntoEdgesDirected for &'a RelRcGraph<N, E> {
+impl<'a, N, E, R> IntoEdgesDirected for &'a HistoryGraph<N, E, R> {
     type EdgesDirected = Box<dyn Iterator<Item = Self::EdgeRef> + 'a>;
 
     fn edges_directed(self, node_id: Self::NodeId, d: Direction) -> Self::EdgesDirected {
-        let node = self.get_node(node_id);
         match d {
             Direction::Outgoing => Box::new(
-                node.all_outgoing_weak_ref()
-                    .to_vec()
-                    .into_iter()
-                    .map(|e| unsafe { EdgeRef::from_weak_unchecked(e.clone()) }),
+                self.outgoing_edges(node_id)
+                    .map(|edge_id| EdgeRef::new(edge_id, self)),
             ),
             Direction::Incoming => Box::new(
-                (0..node.n_incoming()).map(move |i| unsafe { EdgeRef::new_unchecked(node_id, i) }),
+                self.incoming_edges(node_id)
+                    .map(|edge_id| EdgeRef::new(edge_id, self)),
             ),
         }
     }
 }
 
-impl<'a, N, E> Visitable for &'a RelRcGraph<N, E> {
-    type Map = HashSet<NodeId<N, E>>;
+impl<'a, N, E, R> Visitable for &'a HistoryGraph<N, E, R> {
+    type Map = HashSet<NodeId>;
 
     #[doc = r" Create a new visitor map"]
     fn visit_map(&self) -> Self::Map {

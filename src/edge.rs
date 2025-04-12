@@ -1,6 +1,5 @@
 //! Parent-child relationships between [`RelRc`] objects.
 
-use std::hash::Hash;
 use std::ops::Deref;
 
 use derive_where::derive_where;
@@ -14,10 +13,10 @@ use crate::{RelRc, RelWeak};
 /// target.
 ///
 /// Note: the implementation assumes that the edge target is always the owner of
-/// the [`InnerEdgeData`]. Calls to [`InnerEdgeData::target`] may otherwise panic.
-/// This also means that [`InnerEdgeData`] cannot be cloned.
+/// the [`InnerEdgeData`]. Calls to [`InnerEdgeData::target`] may otherwise
+/// panic. This also means that [`InnerEdgeData`] cannot be cloned.
 #[derive(Debug)]
-#[derive_where(Clone, Hash; E)]
+#[derive_where(Clone; E)]
 pub struct InnerEdgeData<N, E> {
     /// The value of the edge.
     pub(crate) value: E,
@@ -58,7 +57,7 @@ impl<N, E> InnerEdgeData<N, E> {
     }
 }
 
-impl<N: Hash, E: Hash> InnerEdgeData<N, E> {
+impl<N, E> InnerEdgeData<N, E> {
     /// The target node of the edge.
     ///
     /// This upgrades the target node and returns a strong reference. It panics
@@ -82,7 +81,7 @@ impl<N: Hash, E: Hash> InnerEdgeData<N, E> {
 ///
 /// Upgrades to [`Edge`] if the reference is valid.
 #[derive(Debug)]
-#[derive_where(Clone, Hash)]
+#[derive_where(Clone)]
 pub struct WeakEdge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
     pub(crate) index: usize,
@@ -107,15 +106,15 @@ impl<N, E> WeakEdge<N, E> {
 
 /// Strong reference to an edge.
 ///
-/// Will keep the edge and the target object of the edge alive for as long as this
-/// reference is in scope.
+/// Will keep the edge and the target object of the edge alive for as long as
+/// this reference is in scope.
 #[derive(Debug)]
-#[derive_where(Clone, Hash)]
+#[derive_where(Clone)]
 pub struct Edge<N, E> {
     /// The index of the edge in the owner node's incoming edges.
-    index: usize,
+    pub(crate) index: usize,
     /// The target node (and owner) of the edge.
-    target: RelRc<N, E>,
+    pub(crate) target: RelRc<N, E>,
 }
 
 impl<N, E> Edge<N, E> {
@@ -141,7 +140,7 @@ impl<N, E> Deref for Edge<N, E> {
     }
 }
 
-impl<N: Hash, E: Hash> WeakEdge<N, E> {
+impl<N, E> WeakEdge<N, E> {
     /// Upgrades to a [`Edge`] if the reference is still valid.
     pub fn upgrade(&self) -> Option<Edge<N, E>> {
         let target = self.target.upgrade()?;

@@ -5,4 +5,5 @@
     "editor.minimap.enabled": false,
     "rust-analyzer.check.features": "all",
     "rust-analyzer.cargo.features": "all",
+    "rust-analyzer.rustfmt.extraArgs": ["+nightly"],
 }

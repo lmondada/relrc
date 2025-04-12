@@ -1,7 +1,6 @@
 //! Reference-counted pointers.
 
 use std::cell::Ref;
-use std::hash::Hash;
 use std::{
     cell::RefCell,
     ops::Deref,
@@ -11,7 +10,6 @@ use std::{
 use derive_more::From;
 use derive_where::derive_where;
 
-use crate::hash_id::RelRcHash;
 use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 
 /// A single-threaded reference-counted pointer, optionally with relationships
@@ -27,29 +25,26 @@ use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 ///
 /// ## Immutability
 /// Just like [`Rc`], [`RelRc`] objects are immutable. Once a [`RelRc`] object
-/// is created, both its value as well as its parents cannot be changed. Children
-/// can however always be added (and removed when falling out of scope).
+/// is created, both its value as well as its parents cannot be changed.
+/// Children can however always be added (and removed when falling out of
+/// scope).
 ///
 /// ## Unique IDs
 ///
 /// Every [`RelRc`] object is assigned a unique hash-based identifier. For this
-/// reason, object creation operations will require N and E generics to be hashable.
+/// reason, object creation operations will require N and E generics to be
+/// hashable.
 #[derive(Debug)]
-#[derive_where(Clone, Hash)]
-pub struct RelRc<N, E> {
-    #[derive_where(skip)] // skip hashing this field
-    inner: Rc<InnerData<N, E>>,
-    hash_id: RelRcHash,
-}
+#[derive_where(Clone)]
+pub struct RelRc<N, E>(Rc<InnerData<N, E>>);
 
-impl<N: Hash, E: Hash> From<Rc<InnerData<N, E>>> for RelRc<N, E> {
+impl<N, E> From<Rc<InnerData<N, E>>> for RelRc<N, E> {
     fn from(inner: Rc<InnerData<N, E>>) -> Self {
-        let hash_id = RelRcHash::from(inner.as_ref());
-        Self { inner, hash_id }
+        Self(inner)
     }
 }
 
-impl<N: Hash, E: Hash> RelRc<N, E> {
+impl<N, E> RelRc<N, E> {
     /// Create a new [`RelRc<N, E>`] with no parents.
     pub fn new(value: N) -> Self {
         let inner = Rc::new(InnerData::new(value));
@@ -85,36 +80,28 @@ impl<N, E> RelRc<N, E> {
     /// underlying data. The pointer is valid as long as at least one reference
     /// to the data exists.
     pub fn as_ptr(&self) -> *const InnerData<N, E> {
-        Rc::as_ptr(&self.inner)
+        Rc::as_ptr(&self.0)
     }
 
     /// Unwrap the pointer, returning the value if `self` was the only owner.
     ///
     /// Returns an Err with `self` if there is more than one owner.
     pub fn try_unwrap(self) -> Result<N, Self> {
-        match Rc::try_unwrap(self.inner) {
+        match Rc::try_unwrap(self.0) {
             Ok(data) => Ok(data.value),
-            Err(data) => Err(RelRc {
-                inner: data,
-                hash_id: self.hash_id,
-            }),
+            Err(data) => Err(RelRc(data)),
         }
     }
 
-    /// Check if two pointers point to the same underlying data by comparing their
-    /// raw pointers.
+    /// Check if two pointers point to the same underlying data by comparing
+    /// their raw pointers.
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.inner, &other.inner)
-    }
-
-    /// Get the hash ID of the node.
-    pub fn hash_id(&self) -> RelRcHash {
-        self.hash_id
+        Rc::ptr_eq(&self.0, &other.0)
     }
 
     /// Downgrade the node to a weak reference.
     pub fn downgrade(&self) -> RelWeak<N, E> {
-        RelWeak(Rc::downgrade(&self.inner))
+        RelWeak(Rc::downgrade(&self.0))
     }
 }
 
@@ -125,7 +112,7 @@ impl<N, E> RelRc<N, E> {
 #[derive_where(Clone)]
 pub struct RelWeak<N, E>(Weak<InnerData<N, E>>);
 
-impl<N: Hash, E: Hash> RelWeak<N, E> {
+impl<N, E> RelWeak<N, E> {
     /// Upgrades to a [`Node`] if the reference is still valid.
     pub fn upgrade(&self) -> Option<RelRc<N, E>> {
         self.0.upgrade().map(RelRc::from)
@@ -144,18 +131,12 @@ impl<N, E> RelWeak<N, E> {
     }
 }
 
-impl<N, E> Hash for RelWeak<N, E> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.as_ptr().hash(state);
-    }
-}
-
 /// Data within a [`RelRc`] object.
 ///
-/// Keeps track of its incident edges. Sole owner of the incoming edges, i.e. the
-/// edges will exist if and only if the node exists. References to outgoing edges
-/// are weak references, thus they may get deleted if all downstream nodes have
-/// been deleted.
+/// Keeps track of its incident edges. Sole owner of the incoming edges, i.e.
+/// the edges will exist if and only if the node exists. References to outgoing
+/// edges are weak references, thus they may get deleted if all downstream nodes
+/// have been deleted.
 #[derive(Debug, Clone)]
 pub struct InnerData<N, E> {
     /// The value of the node.
@@ -175,7 +156,7 @@ impl<N, E> Deref for RelRc<N, E> {
     type Target = InnerData<N, E>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
@@ -189,7 +170,7 @@ impl<N: Default, E> Default for InnerData<N, E> {
     }
 }
 
-impl<N: Default + Hash, E: Hash> Default for RelRc<N, E> {
+impl<N: Default, E> Default for RelRc<N, E> {
     fn default() -> Self {
         Self::new(Default::default())
     }
@@ -273,11 +254,11 @@ impl<N, E> InnerData<N, E> {
     }
 }
 
-impl<N: Hash, E: Hash> InnerData<N, E> {
+impl<N, E> InnerData<N, E> {
     /// Iterate over all outgoing edges.
     ///
-    /// The edges are weakly referenced, so they may get deleted if all downstream
-    /// nodes have been deleted.
+    /// The edges are weakly referenced, so they may get deleted if all
+    /// downstream nodes have been deleted.
     ///
     /// This upgrades all outgoing edges, removes references to edges that have
     /// been deleted, and returns the remaining edges in a new vector. This is
