@@ -1,20 +1,23 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
-pub mod detached;
+// pub mod detached;
 pub mod edge;
-pub mod graph_view;
-pub mod hash_id;
+pub mod history;
 pub mod node;
 #[cfg(feature = "petgraph")]
 pub mod petgraph;
+pub mod resolver;
+mod serialization;
 
 pub use edge::Edge;
-pub use graph_view::{EdgeId, NodeId, RelRcGraph};
+pub use history::{EdgeId, HistoryGraph, NodeId};
 pub use node::RelRc;
 
-#[cfg(feature = "mpi")]
-pub use detached::mpi;
+// #[cfg(feature = "mpi")]
+// pub use detached::mpi;
 
 pub use edge::WeakEdge;
 pub use node::RelWeak;
+
+pub use resolver::EquivalenceResolver;
