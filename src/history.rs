@@ -101,6 +101,12 @@ impl<N, E, R> HistoryGraph<N, E, R> {
             .map(|edge_id| self.source(edge_id))
     }
 
+    /// Get all child node IDs of a node.
+    pub fn children(&self, node_id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+        self.outgoing_edges(node_id)
+            .map(|edge_id| self.target(edge_id))
+    }
+
     fn get_node_id(&self, node: &RelRc<N, E>) -> Option<NodeId> {
         self.ptr_to_node_id.get(&node.as_ptr()).copied()
     }
