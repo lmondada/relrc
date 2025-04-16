@@ -250,7 +250,7 @@ impl<N: Clone, E: Clone, R: EquivalenceResolver<N, E>> HistoryGraph<N, E, R> {
             // Node already in `self` => Nothing to do other than recording the mapping for
             // its children
             let node_id = NodeId(dedup_key, index);
-            ancestors.insert(node_id, Some(mapping));
+            ancestors.insert(node_id, mapping);
             node_id
         } else {
             // Add new node to `self`
@@ -273,25 +273,37 @@ impl<N: Clone, E: Clone, R: EquivalenceResolver<N, E>> HistoryGraph<N, E, R> {
         }
     }
 
-    /// Return the position of a node in `candidate_equivalent_nodes` that is
-    /// equivalent to `node`.
+    /// Find the position of a node in `candidate_equivalent_nodes` that is
+    /// equivalent to `node`, along with its merge mapping if it exists.
+    ///
+    /// Return:
+    ///  - None if no equivalent node is found.
+    ///  - Some((pos, None)) if the pos-th node is exactly equal to `node`
+    ///    (trivial merge mapping).
+    ///  - Some((pos, Some(mapping))) if the node is equivalent to another node
+    ///    and `mapping` is the merge mapping from the other node to `node`.
     fn position_equivalent_node(
         &self,
         node: &RelRc<N, E>,
         candidate_equivalent_nodes: &[RelRc<N, E>],
-    ) -> Option<(usize, R::MergeMapping)> {
+    ) -> Option<(usize, Option<R::MergeMapping>)> {
         let incoming_edges = node.all_incoming().iter().map(|e| e.value()).collect_vec();
         candidate_equivalent_nodes
             .iter()
             .map(|other| {
+                if node.as_ptr() == other.as_ptr() {
+                    return Ok(None);
+                }
                 let other_incoming_edges =
                     other.all_incoming().iter().map(|e| e.value()).collect_vec();
-                self.resolver.try_merge_mapping(
-                    node.value(),
-                    &incoming_edges,
-                    other.value(),
-                    &other_incoming_edges,
-                )
+                self.resolver
+                    .try_merge_mapping(
+                        node.value(),
+                        &incoming_edges,
+                        other.value(),
+                        &other_incoming_edges,
+                    )
+                    .map(Some)
             })
             .enumerate()
             .find_map(|(index, mapping)| mapping.ok().map(|m| (index, m)))
@@ -299,6 +311,9 @@ impl<N: Clone, E: Clone, R: EquivalenceResolver<N, E>> HistoryGraph<N, E, R> {
 
     /// Construct a new [`RelRc`] node with the same value as `node`, but
     /// with its parents moved to `parent_ids` according to `parent_mappings`.
+    ///
+    /// If all parents can be left unchanged, return `node` without constructing
+    /// a new [`RelRc`].
     fn move_parents(
         &self,
         node: RelRc<N, E>,
@@ -306,18 +321,25 @@ impl<N: Clone, E: Clone, R: EquivalenceResolver<N, E>> HistoryGraph<N, E, R> {
         parent_mappings: &[Option<&R::MergeMapping>],
     ) -> RelRc<N, E> {
         let edge_values = node.all_incoming().iter().map(|e| e.value());
-        let new_parents = izip!(parent_ids, edge_values, parent_mappings).map(
-            |(&parent_id, edge_value, mapping)| {
-                let parent = self.get_node(parent_id);
-                let new_edge_value = if let Some(mapping) = mapping {
-                    self.resolver.move_edge_source(mapping, edge_value)
-                } else {
-                    edge_value.clone()
-                };
-                (parent.clone(), new_edge_value)
-            },
-        );
-        RelRc::with_parents(node.value().clone(), new_parents)
+        let mut all_parents_unchanged = true;
+
+        let mut new_parents = Vec::with_capacity(parent_ids.len());
+        for (&parent_id, edge_value, mapping) in izip!(parent_ids, edge_values, parent_mappings) {
+            let parent = self.get_node(parent_id);
+            let new_edge_value = if let Some(mapping) = mapping {
+                all_parents_unchanged = false;
+                self.resolver.move_edge_source(mapping, edge_value)
+            } else {
+                edge_value.clone()
+            };
+            new_parents.push((parent.clone(), new_edge_value));
+        }
+
+        if all_parents_unchanged {
+            node
+        } else {
+            RelRc::with_parents(node.value().clone(), new_parents)
+        }
     }
 }
 
