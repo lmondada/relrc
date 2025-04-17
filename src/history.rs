@@ -118,6 +118,18 @@ impl<N, E, R> HistoryGraph<N, E, R> {
             .flat_map(|(key, vec)| (0..vec.len()).map(move |i| NodeId(*key, i)))
     }
 
+    /// Check if a node is in the history graph.
+    pub fn contains(&self, node: &RelRc<N, E>) -> bool {
+        self.get_node_id(node).is_some()
+    }
+
+    /// Check if a node id is in the history graph.
+    pub fn contains_id(&self, node_id: NodeId) -> bool {
+        self.nodes_by_hash
+            .get(&node_id.0)
+            .map_or(false, |v| v.len() > node_id.1)
+    }
+
     /// Get the node data for a node identifier.
     ///
     /// Panic if the node id is invalid.
