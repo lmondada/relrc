@@ -83,6 +83,17 @@ impl<'r, N, E, R: EquivalenceResolver<N, E>> From<&'r R> for ResolverId<N, E, R>
     }
 }
 
+impl<N, E, R> From<ResolverId<N, E, R>> for String {
+    fn from(value: ResolverId<N, E, R>) -> Self {
+        value.id
+    }
+}
+
+/// Error type when resolver IDs mismatch.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Error)]
+#[error("Invalid resolver \"{0}\", expected \"{1}\"")]
+pub struct InvalidResolver(pub String, pub String);
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -91,7 +102,8 @@ pub(crate) mod tests {
     /// Two nodes are equivalent if the first element of their tuple is
     /// identical. All outgoing edges must have weight equal to the second
     /// element of the node's tuple.
-    #[derive(Debug, Clone, Default)]
+    #[derive(Debug, Copy, Clone, Default)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub(crate) struct TestResolver;
 
     impl EquivalenceResolver<(usize, usize), usize> for TestResolver {
