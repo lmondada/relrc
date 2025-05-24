@@ -1,6 +1,8 @@
 //! Serialization and deserialization of [`RelRc`] objects.
 
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
+#[cfg(feature = "serde")]
+use std::str::FromStr;
 
 use crate::{
     resolver::{InvalidResolver, ResolverId},
@@ -18,6 +20,14 @@ pub struct SerializedRelRc<N, E> {
 /// A serializable representation of a [`HistoryGraph`] object.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "N: serde::Serialize, E: serde::Serialize"))
+)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(deserialize = "N: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned"))
+)]
 pub struct SerializedHistoryGraph<N, E, R> {
     pub nodes: BTreeMap<NodeId, SerializedInnerData<N, E>>,
     pub resolver_id: ResolverId<N, E, R>,

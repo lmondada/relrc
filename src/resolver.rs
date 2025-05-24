@@ -69,8 +69,10 @@ pub trait EquivalenceResolver<N, E> {
 /// Store a unique identifier for the resolver.
 #[derive_where(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ResolverId<N, E, R> {
     id: String,
+    #[cfg_attr(feature = "serde", serde(skip))]
     _marker: std::marker::PhantomData<(N, E, R)>,
 }
 

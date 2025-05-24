@@ -49,7 +49,6 @@ expression: "serde_json::to_string_pretty(&serialized).unwrap()"
     }
   },
   "resolver_id": {
-    "id": "test_resolver",
-    "_marker": null
+    "id": "test_resolver"
   }
 }

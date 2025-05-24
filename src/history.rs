@@ -404,6 +404,7 @@ pub struct EdgeId {
 
 #[cfg(test)]
 mod tests {
+    #![cfg(feature = "serde")]
     use insta::assert_snapshot;
 
     use super::*;
