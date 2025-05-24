@@ -18,6 +18,8 @@ use crate::{
 
 use derive_more::{From, Into};
 use derive_where::derive_where;
+use std::fmt;
+use std::str::FromStr;
 
 /// Represents a Merkle Tree hash of all deduplication keys in the ancestor
 /// graph of a `RelRc`.
@@ -357,8 +359,36 @@ impl<N: Clone, E: Clone, R: EquivalenceResolver<N, E>> HistoryGraph<N, E, R> {
 
 /// A node identifier in a [`RelRcGraph`], given by a dedup key and an index.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, From, Into)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeId(pub AncestorGraphHash, pub usize);
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.1 == 0 {
+            write!(f, "{:x}", self.0)
+        } else {
+            write!(f, "{:x}#{}", self.0, self.1)
+        }
+    }
+}
+
+impl FromStr for NodeId {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some((hash_str, index_str)) = s.split_once('#') {
+            let hash = u64::from_str_radix(hash_str, 16)
+                .map_err(|e| format!("Invalid hash '{}': {}", hash_str, e))?;
+            let index = index_str
+                .parse::<usize>()
+                .map_err(|e| format!("Invalid index '{}': {}", index_str, e))?;
+            Ok(NodeId(hash, index))
+        } else {
+            let hash =
+                u64::from_str_radix(s, 16).map_err(|e| format!("Invalid hash '{}': {}", s, e))?;
+            Ok(NodeId(hash, 0))
+        }
+    }
+}
 
 /// An edge identifier in a [`RelRcGraph`].
 ///
@@ -374,6 +404,8 @@ pub struct EdgeId {
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_snapshot;
+
     use super::*;
     use crate::resolver::tests::TestResolver;
     use crate::RelRc;
@@ -465,5 +497,38 @@ mod tests {
         // The edge value should be updated to match the second element of the parent
         // (20)
         assert_eq!(child2_edge.value(), &20);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_history_graph_serialization() {
+        // Create first family tree
+
+        use std::collections::BTreeSet;
+        let grandparent1 = RelRc::new((1, 10)); // First element 1 for equivalence
+        let parent1 = RelRc::with_parents((1, 20), vec![(grandparent1.clone(), 10)]);
+        let child1 = RelRc::with_parents((2, 30), vec![(parent1.clone(), 20)]);
+
+        // Create second family tree with equivalent parents but distinct child
+        let grandparent2 = RelRc::new((1, 15)); // First element 1 for equivalence
+        let parent2 = RelRc::with_parents((1, 25), vec![(grandparent2.clone(), 15)]);
+        let child2 = RelRc::with_parents((3, 35), vec![(parent2.clone(), 25)]);
+        assert_eq!(child2.incoming(0).unwrap().value(), &25);
+
+        // Create history graph with first family
+        let resolver = TestResolver;
+        let mut graph = HistoryGraph::with_resolver(resolver);
+        graph.insert_node(child1);
+        graph.insert_node(child2);
+
+        let serialized = graph.to_serialized();
+        assert_snapshot!(serde_json::to_string_pretty(&serialized).unwrap());
+
+        let deserialized = HistoryGraph::try_from_serialized(serialized, resolver).unwrap();
+
+        assert_eq!(
+            graph.all_node_ids().collect::<BTreeSet<_>>(),
+            deserialized.all_node_ids().collect::<BTreeSet<_>>()
+        );
     }
 }
