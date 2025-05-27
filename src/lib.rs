@@ -8,7 +8,7 @@ pub mod node;
 #[cfg(feature = "petgraph")]
 pub mod petgraph;
 pub mod resolver;
-mod serialization;
+pub mod serialization;
 
 pub use edge::Edge;
 pub use history::{EdgeId, HistoryGraph, NodeId};

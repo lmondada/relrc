@@ -13,7 +13,9 @@ use crate::{
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SerializedRelRc<N, E> {
+    /// The ID of the current node.
     pub id: NodeId,
+    /// The ancestors of the current node.
     pub ancestors: BTreeMap<NodeId, SerializedInnerData<N, E>>,
 }
 
@@ -29,7 +31,9 @@ pub struct SerializedRelRc<N, E> {
     serde(bound(deserialize = "N: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned"))
 )]
 pub struct SerializedHistoryGraph<N, E, R> {
+    /// The nodes of the graph.
     pub nodes: BTreeMap<NodeId, SerializedInnerData<N, E>>,
+    /// The ID of the resolver.
     pub resolver_id: ResolverId<N, E, R>,
 }
 
@@ -37,7 +41,9 @@ pub struct SerializedHistoryGraph<N, E, R> {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SerializedInnerData<N, E> {
+    /// The value of the node.
     pub value: N,
+    /// The incoming edges of the node.
     pub incoming: Vec<(NodeId, E)>,
 }
 
@@ -163,7 +169,6 @@ fn deserialize_node<'a, N: Clone, E: Clone>(
     ancestors_ser: &mut BTreeMap<NodeId, SerializedInnerData<N, E>>,
     ancestors_deser: &'a mut BTreeMap<NodeId, RelRc<N, E>>,
 ) -> &'a RelRc<N, E> {
-    println!("popping node {}", node_id);
     let node_ser = ancestors_ser.remove(&node_id).expect("invalid node_id");
 
     // Recursively deserialize ancestors

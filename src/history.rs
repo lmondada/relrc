@@ -455,13 +455,6 @@ mod tests {
             "Should have 3 nodes after adding first family"
         );
 
-        for node_id in graph.all_node_ids() {
-            for e in graph.incoming_edges(node_id) {
-                dbg!(e);
-                dbg!(graph.source(e));
-            }
-        }
-
         // Check parent-child relationships in graph
         let parent_id = graph.source(EdgeId {
             target: child1_id,
