@@ -28,7 +28,7 @@ pub struct SerializedRelRc<N, E> {
 )]
 #[cfg_attr(
     feature = "serde",
-    serde(bound(deserialize = "N: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned"))
+    serde(bound(deserialize = "N: serde::de::Deserialize<'de>, E: serde::de::Deserialize<'de>"))
 )]
 pub struct SerializedHistoryGraph<N, E, R> {
     /// The nodes of the graph.
