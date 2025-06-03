@@ -76,6 +76,16 @@ pub struct ResolverId<N, E, R> {
     _marker: std::marker::PhantomData<(N, E, R)>,
 }
 
+impl<N, E, R> ResolverId<N, E, R> {
+    /// Cast the resolver ID to a different type.
+    pub(crate) fn cast<N2, E2, R2>(self) -> ResolverId<N2, E2, R2> {
+        ResolverId {
+            id: self.id,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
 impl<'r, N, E, R: EquivalenceResolver<N, E>> From<&'r R> for ResolverId<N, E, R> {
     fn from(value: &'r R) -> Self {
         Self {

@@ -20,7 +20,7 @@ pub struct SerializedRelRc<N, E> {
 }
 
 /// A serializable representation of a [`HistoryGraph`] object.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -37,14 +37,38 @@ pub struct SerializedHistoryGraph<N, E, R> {
     pub resolver_id: ResolverId<N, E, R>,
 }
 
+impl<N, E, R> SerializedHistoryGraph<N, E, R> {
+    /// Map the values of all nodes in the graph.
+    pub fn map_nodes<M>(self, f: impl Fn(N) -> M) -> SerializedHistoryGraph<M, E, R> {
+        SerializedHistoryGraph {
+            nodes: self
+                .nodes
+                .into_iter()
+                .map(|(k, v)| (k, v.map_value(&f)))
+                .collect(),
+            resolver_id: self.resolver_id.cast(),
+        }
+    }
+}
+
 /// A serializable representation of the inner data of a [`RelRc`] object.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SerializedInnerData<N, E> {
     /// The value of the node.
     pub value: N,
     /// The incoming edges of the node.
     pub incoming: Vec<(NodeId, E)>,
+}
+
+impl<N, E> SerializedInnerData<N, E> {
+    /// Map the value of the node.
+    pub fn map_value<M>(self, f: impl FnOnce(N) -> M) -> SerializedInnerData<M, E> {
+        SerializedInnerData {
+            value: f(self.value),
+            incoming: self.incoming,
+        }
+    }
 }
 
 impl<N: Clone, E: Clone> SerializedInnerData<N, E> {
