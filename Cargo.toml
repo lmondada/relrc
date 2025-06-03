@@ -1,6 +1,6 @@
 [package]
 name = "relrc"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 rust-version = "1.81"
 description = "Reference counted pointers, with relationships to other pointers."
