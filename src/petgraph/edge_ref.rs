@@ -2,9 +2,9 @@ use derive_where::derive_where;
 use petgraph::visit;
 
 use crate::edge::InnerEdgeData;
-use crate::HistoryGraph;
+use crate::{HistoryGraph, NodeId};
 
-use crate::history::{EdgeId, NodeId};
+use crate::history::EdgeId;
 
 /// An edge reference in an [`AncestorGraph`].
 ///
@@ -12,13 +12,13 @@ use crate::history::{EdgeId, NodeId};
 /// for the lifetime `'a`.
 #[derive(Debug)]
 #[derive_where(Clone, Copy)]
-pub struct EdgeRef<'a, N, E, R> {
+pub struct EdgeRef<'a, N, E> {
     id: EdgeId,
-    history: &'a HistoryGraph<N, E, R>,
+    history: &'a HistoryGraph<N, E>,
 }
 
-impl<'a, N, E, R> EdgeRef<'a, N, E, R> {
-    pub(super) fn new(id: EdgeId, history: &'a HistoryGraph<N, E, R>) -> Self {
+impl<'a, N, E> EdgeRef<'a, N, E> {
+    pub(super) fn new(id: EdgeId, history: &'a HistoryGraph<N, E>) -> Self {
         Self { id, history }
     }
 
@@ -26,11 +26,11 @@ impl<'a, N, E, R> EdgeRef<'a, N, E, R> {
     where
         N: 'a,
     {
-        self.history.get_edge(self.id)
+        self.history.get_edge(self.id).expect("edge is valid")
     }
 }
 
-impl<'a, N, E, R> visit::EdgeRef for EdgeRef<'a, N, E, R> {
+impl<'a, N, E> visit::EdgeRef for EdgeRef<'a, N, E> {
     type NodeId = NodeId;
 
     type EdgeId = EdgeId;
@@ -38,11 +38,11 @@ impl<'a, N, E, R> visit::EdgeRef for EdgeRef<'a, N, E, R> {
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
-        self.history.source(self.id)
+        self.history.source(self.id).expect("edge is valid")
     }
 
     fn target(&self) -> Self::NodeId {
-        self.history.target(self.id)
+        self.history.target(self.id).expect("edge is valid")
     }
 
     fn weight(&self) -> &Self::Weight {

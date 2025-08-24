@@ -1,0 +1,38 @@
+---
+source: src/serialization.rs
+expression: serialized
+---
+nodes:
+  - idx: 1
+    version: 1
+  - idx: 2
+    version: 1
+registry:
+  nodes:
+    - value: ~
+      version: 0
+    - value:
+        value: child1
+        incoming:
+          - - idx: 3
+              version: 1
+            - edge1
+      version: 1
+    - value:
+        value: child2
+        incoming:
+          - - idx: 3
+              version: 1
+            - edge2
+          - - idx: 4
+              version: 1
+            - edge3
+      version: 1
+    - value:
+        value: root1
+        incoming: []
+      version: 1
+    - value:
+        value: root2
+        incoming: []
+      version: 1

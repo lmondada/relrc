@@ -1,6 +1,8 @@
 //! Reference-counted pointers.
 
 use std::cell::Ref;
+use std::collections::VecDeque;
+use std::iter;
 use std::{
     cell::RefCell,
     ops::Deref,
@@ -9,7 +11,9 @@ use std::{
 
 use derive_more::From;
 use derive_where::derive_where;
+use fxhash::FxHashSet;
 
+use crate::Registry;
 use crate::{edge::InnerEdgeData, Edge, WeakEdge};
 
 /// A single-threaded reference-counted pointer, optionally with relationships
@@ -83,16 +87,6 @@ impl<N, E> RelRc<N, E> {
         Rc::as_ptr(&self.0)
     }
 
-    /// Unwrap the pointer, returning the value if `self` was the only owner.
-    ///
-    /// Returns an Err with `self` if there is more than one owner.
-    pub fn try_unwrap(self) -> Result<N, Self> {
-        match Rc::try_unwrap(self.0) {
-            Ok(data) => Ok(data.value),
-            Err(data) => Err(RelRc(data)),
-        }
-    }
-
     /// Check if two pointers point to the same underlying data by comparing
     /// their raw pointers.
     pub fn ptr_eq(&self, other: &Self) -> bool {
@@ -102,6 +96,74 @@ impl<N, E> RelRc<N, E> {
     /// Downgrade the node to a weak reference.
     pub fn downgrade(&self) -> RelWeak<N, E> {
         RelWeak(Rc::downgrade(&self.0))
+    }
+
+    /// Register this node in the given registry and return its ID.
+    ///
+    /// A node can only be registered in one registry at a time. If the node is
+    /// already registered in a different registry, this will return `None`.
+    ///
+    /// The node ID in the registry will be freed when the last reference to
+    /// `self` is dropped.
+    #[must_use]
+    pub fn try_register_in(
+        &self,
+        registry: &Rc<RefCell<Registry<N, E>>>,
+    ) -> Option<crate::registry::NodeId> {
+        if !self.try_set_register(registry) {
+            return None;
+        }
+        Some(registry.borrow_mut().add_node(self))
+    }
+
+    /// Set the registry that tracks this node.
+    ///
+    /// A node can only be registered in one registry at a time. If the node is
+    /// already registered in a different registry, this will return `None`.
+    ///
+    /// The node ID in the registry will be freed when the last reference to
+    /// `self` is dropped.
+    #[must_use]
+    fn try_set_register(&self, registry: &Rc<RefCell<Registry<N, E>>>) -> bool {
+        let weak = Rc::downgrade(registry);
+        if let Some(existing) = self.0.registry.borrow().as_ref() {
+            return existing.ptr_eq(&weak);
+        }
+        self.0.registry.borrow_mut().replace(weak);
+        true
+    }
+
+    /// Iterate over all ancestors of the object, including self.
+    pub fn all_ancestors(&self) -> impl Iterator<Item = &RelRc<N, E>> + '_ {
+        let mut seen = FxHashSet::default();
+        let mut stack = VecDeque::from([self]);
+
+        iter::from_fn(move || {
+            let node = stack.pop_front()?;
+            if seen.insert(node.as_ptr()) {
+                stack.extend(node.all_parents());
+            }
+            Some(node)
+        })
+    }
+}
+
+impl<N, E> Drop for RelRc<N, E> {
+    fn drop(&mut self) {
+        if Rc::strong_count(&self.0) > 1 {
+            return;
+        }
+        let mut register = self.0.registry.borrow_mut();
+        let Some(weak) = register.take() else {
+            return;
+        };
+        let Some(registry) = weak.upgrade() else {
+            return;
+        };
+        let Some(id) = registry.borrow().get_id(self) else {
+            return;
+        };
+        registry.borrow_mut().remove(id);
     }
 }
 
@@ -131,6 +193,9 @@ impl<N, E> RelWeak<N, E> {
     }
 }
 
+/// A weak reference to a [`Registry`] object.
+pub type WeakRegistry<N, E> = Weak<RefCell<Registry<N, E>>>;
+
 /// Data within a [`RelRc`] object.
 ///
 /// Keeps track of its incident edges. Sole owner of the incoming edges, i.e.
@@ -150,6 +215,8 @@ pub struct InnerData<N, E> {
     /// The order and position of the outgoing edges may change at any time, as
     /// the edges may get deleted.
     outgoing: RefCell<Vec<WeakEdge<N, E>>>,
+    /// The registry that tracks this node, if there is one.
+    registry: RefCell<Option<WeakRegistry<N, E>>>,
 }
 
 impl<N, E> Deref for RelRc<N, E> {
@@ -166,6 +233,7 @@ impl<N: Default, E> Default for InnerData<N, E> {
             value: Default::default(),
             incoming: Vec::new(),
             outgoing: RefCell::new(Vec::new()),
+            registry: RefCell::new(None),
         }
     }
 }
@@ -182,6 +250,7 @@ impl<N, E> InnerData<N, E> {
             value,
             incoming: Vec::new(),
             outgoing: RefCell::new(Vec::new()),
+            registry: RefCell::new(None),
         }
     }
 
@@ -190,6 +259,7 @@ impl<N, E> InnerData<N, E> {
             value,
             incoming,
             outgoing: RefCell::new(Vec::new()),
+            registry: RefCell::new(None),
         }
     }
 
@@ -292,5 +362,30 @@ impl<N, E> InnerData<N, E> {
 fn register_outgoing_edges<N, E>(incoming: &[InnerEdgeData<N, E>]) {
     for (i, edge) in incoming.iter().enumerate() {
         edge.source().outgoing.borrow_mut().push(edge.downgrade(i));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cleanup_dead_references() {
+        let registry = Rc::new(RefCell::new(Registry::<&str, ()>::new()));
+
+        let id = {
+            let node = RelRc::new("test");
+            let id = node.try_register_in(&registry).unwrap();
+
+            assert_eq!(registry.borrow().len(), 1);
+            id
+        }; // node is dropped here
+
+        let registry = Rc::try_unwrap(registry).unwrap().into_inner();
+
+        // Should return None and clean up the entry
+        assert!(registry.get(id).is_none());
+        assert!(!registry.contains_id(id));
+        assert_eq!(registry.len(), 0);
     }
 }

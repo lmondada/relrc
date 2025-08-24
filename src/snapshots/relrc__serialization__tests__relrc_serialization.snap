@@ -1,0 +1,18 @@
+---
+source: src/serialization.rs
+expression: serialized
+---
+id:
+  idx: 1
+  version: 1
+ancestors_graph:
+  nodes:
+    - idx: 1
+      version: 1
+  registry:
+    - value: ~
+      version: 0
+    - value:
+        value: 42
+        incoming: []
+      version: 1

@@ -1,0 +1,38 @@
+---
+source: src/serialization.rs
+expression: serialized
+---
+id:
+  idx: 4
+  version: 1
+ancestors_graph:
+  nodes:
+    - idx: 1
+      version: 1
+    - idx: 2
+      version: 1
+    - idx: 4
+      version: 1
+  registry:
+    - value: ~
+      version: 0
+    - value:
+        value: parent1
+        incoming: []
+      version: 1
+    - value:
+        value: parent2
+        incoming: []
+      version: 1
+    - value: ~
+      version: 2
+    - value:
+        value: child
+        incoming:
+          - - idx: 1
+              version: 1
+            - edge_from_parent1
+          - - idx: 2
+              version: 1
+            - edge_from_parent2
+      version: 1

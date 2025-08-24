@@ -1,54 +1,69 @@
 ---
 source: src/history.rs
-expression: "serde_json::to_string_pretty(&serialized).unwrap()"
+expression: serialized
 ---
-{
-  "nodes": {
-    "4d6bc93965c1357": {
-      "value": [
-        1,
-        20
-      ],
-      "incoming": [
-        [
-          "517cc1b727220a95",
-          10
-        ]
-      ]
-    },
-    "517cc1b727220a95": {
-      "value": [
-        1,
-        10
-      ],
-      "incoming": []
-    },
-    "9c8b5ce5aea2ba5a": {
-      "value": [
-        2,
-        30
-      ],
-      "incoming": [
-        [
-          "4d6bc93965c1357",
-          20
-        ]
-      ]
-    },
-    "ee081e9cd5c4c4ef": {
-      "value": [
-        3,
-        35
-      ],
-      "incoming": [
-        [
-          "4d6bc93965c1357",
-          20
-        ]
-      ]
-    }
-  },
-  "resolver_id": {
-    "id": "test_resolver"
-  }
-}
+nodes:
+  - idx: 1
+    version: 1
+  - idx: 2
+    version: 1
+  - idx: 3
+    version: 1
+  - idx: 4
+    version: 1
+  - idx: 5
+    version: 1
+  - idx: 6
+    version: 1
+registry:
+  nodes:
+    - value: ~
+      version: 0
+    - value:
+        value:
+          - 1
+          - 10
+        incoming: []
+      version: 1
+    - value:
+        value:
+          - 1
+          - 20
+        incoming:
+          - - idx: 1
+              version: 1
+            - 10
+      version: 1
+    - value:
+        value:
+          - 2
+          - 30
+        incoming:
+          - - idx: 2
+              version: 1
+            - 20
+      version: 1
+    - value:
+        value:
+          - 1
+          - 15
+        incoming: []
+      version: 1
+    - value:
+        value:
+          - 1
+          - 25
+        incoming:
+          - - idx: 4
+              version: 1
+            - 15
+      version: 1
+    - value:
+        value:
+          - 3
+          - 35
+        incoming:
+          - - idx: 5
+              version: 1
+            - 25
+      version: 1

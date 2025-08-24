@@ -230,6 +230,7 @@ dependencies = [
  "console",
  "lazy_static",
  "linked-hash-map",
+ "serde",
  "similar",
 ]
 
@@ -369,6 +370,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "slotmap",
  "thiserror",
 ]
 
@@ -471,6 +473,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slotmap"
+version = "1.0.7"
+source = "git+https://github.com/lmondada/slotmap?rev=3cbf7f2#3cbf7f2eaa8d7fb793e091bca24a9277d9dbd56e"
+dependencies = [
+ "serde",
+ "version_check",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -523,6 +534,12 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+
+[[package]]
+name = "version_check"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "windows-sys"
