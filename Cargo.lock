@@ -370,7 +370,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "slotmap",
+ "slotmap_fork_lmondada",
  "thiserror",
 ]
 
@@ -473,9 +473,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "slotmap"
-version = "1.0.7"
-source = "git+https://github.com/lmondada/slotmap?rev=3cbf7f2#3cbf7f2eaa8d7fb793e091bca24a9277d9dbd56e"
+name = "slotmap_fork_lmondada"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936d3c60e7b845c8978d64485cffa451156294a772ebfafc0ea5fbd7a3c58669"
 dependencies = [
  "serde",
  "version_check",

@@ -20,7 +20,7 @@ fxhash = "0.2.1"
 petgraph = { version = ">= 0.6.5, < 0.9", default-features = false, optional = true }
 serde = { version = "1.0.204", optional = true, features = ["derive"] }
 # TODO: use main slotmap once https://github.com/orlp/slotmap/pull/133 is merged
-slotmap = { git = "https://github.com/lmondada/slotmap", rev = "3cbf7f2" }
+slotmap_fork_lmondada = { version = "1.0.8" }
 thiserror = "1.0.63"
 itertools = "0.13.0"
 # futures = { version = "0.3.31", optional = true, default-features = false, features = [
@@ -29,7 +29,7 @@ itertools = "0.13.0"
 
 [features]
 petgraph = ["dep:petgraph"]
-serde = ["dep:serde", "slotmap/serde"]
+serde = ["dep:serde", "slotmap_fork_lmondada/serde"]
 # mpi = ["dep:mpi", "dep:futures"]
 
 [dev-dependencies]

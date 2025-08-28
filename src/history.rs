@@ -9,7 +9,7 @@ use crate::{edge::InnerEdgeData, Edge, NodeId, Registry, RelRc};
 
 use derive_more::{From, Into};
 use derive_where::derive_where;
-use slotmap::SecondaryMap;
+use slotmap_fork_lmondada::SecondaryMap;
 
 /// A graph of [`RelRc`] nodes and their dependencies.
 ///

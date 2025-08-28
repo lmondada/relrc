@@ -1,7 +1,7 @@
 //! Node registry for assigning unique IDs to RelRc nodes.
 
 use derive_where::derive_where;
-use slotmap::{new_key_type, SlotMap};
+use slotmap_fork_lmondada::{new_key_type, SlotMap};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
