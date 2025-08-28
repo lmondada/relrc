@@ -101,7 +101,7 @@ impl<N, E> HistoryGraph<N, E> {
     }
 
     /// Get all nodes in the ancestor graph.
-    pub fn all_node_ids(&self) -> impl Iterator<Item = NodeId> + '_ {
+    pub fn all_node_ids(&self) -> impl Iterator<Item = NodeId> + Clone + '_ {
         self.nodes.keys()
     }
 

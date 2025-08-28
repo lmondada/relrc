@@ -132,9 +132,17 @@ impl<N, E> Registry<N, E> {
         self.nodes.len()
     }
 
+    /// Iterate over all live nodes in the registry.
+    pub fn iter(&self) -> impl Iterator<Item = (NodeId, RelRc<N, E>)> + '_ {
+        self.nodes
+            .iter()
+            .filter_map(|(id, weak_ref)| Some((id, weak_ref.upgrade()?)))
+    }
+
     /// Get the number of registered nodes (including potentially dead ones).
     ///
-    /// Call `live_count()` if you want only live nodes.
+    /// Call [`Self::free_node_ids`] if you want to clean up and only count live
+    /// nodes.
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -142,15 +150,6 @@ impl<N, E> Registry<N, E> {
     /// Check if the registry is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-
-    /// Get the number of live nodes without modifying the registry.
-    ///
-    /// This is less efficient than `cleanup()` as it doesn't remove dead
-    /// entries.
-    pub fn live_count(&mut self) -> usize {
-        self.free_node_ids();
-        self.len()
     }
 
     /// Remove a node from the registry.

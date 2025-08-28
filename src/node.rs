@@ -116,6 +116,15 @@ impl<N, E> RelRc<N, E> {
         Some(registry.borrow_mut().add_node(self))
     }
 
+    /// Get the registry that this node is registered in, if there is one.
+    pub fn registry(&self) -> Option<Rc<RefCell<Registry<N, E>>>> {
+        self.0
+            .registry
+            .borrow()
+            .as_ref()
+            .and_then(|weak| weak.upgrade())
+    }
+
     /// Set the registry that tracks this node.
     ///
     /// A node can only be registered in one registry at a time. If the node is
@@ -140,9 +149,10 @@ impl<N, E> RelRc<N, E> {
 
         iter::from_fn(move || {
             let node = stack.pop_front()?;
-            if seen.insert(node.as_ptr()) {
-                stack.extend(node.all_parents());
+            if !seen.insert(node.as_ptr()) {
+                return None;
             }
+            stack.extend(node.all_parents());
             Some(node)
         })
     }
@@ -304,7 +314,7 @@ impl<N, E> InnerData<N, E> {
     /// new RelRc objects can be created for as long as the Ref is in scope.
     ///
     /// Don't expose publicly to avoid this issue.
-    pub(crate) fn all_outgoing_weak_ref(&self) -> Ref<[WeakEdge<N, E>]> {
+    pub(crate) fn all_outgoing_weak_ref(&self) -> Ref<'_, [WeakEdge<N, E>]> {
         Ref::map(self.outgoing.borrow(), |edges| edges.as_slice())
     }
 
@@ -334,7 +344,7 @@ impl<N, E> InnerData<N, E> {
     /// been deleted, and returns the remaining edges in a new vector. This is
     /// not done lazily to limit mutable borrow of the outgoing RefCell.
     pub fn all_outgoing(&self) -> Vec<Edge<N, E>> {
-        let mut edges = Vec::new();
+        let mut edges = Vec::with_capacity(self.outgoing.borrow().len());
         self.outgoing.borrow_mut().retain(|e| {
             if let Some(edge) = e.upgrade() {
                 edges.push(edge);

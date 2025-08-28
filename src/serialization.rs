@@ -78,11 +78,22 @@ impl<N: Clone, E: Clone> SerializedInnerData<N, E> {
 #[derive(Debug, Clone, From, Into)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SerializedRegistry<N, E> {
-    pub(crate) nodes: SlotMap<NodeId, SerializedInnerData<N, E>>,
+    /// The nodes in the registry and their serialized data.
+    pub nodes: SlotMap<NodeId, SerializedInnerData<N, E>>,
+}
+
+impl<N: Clone, E: Clone> SerializedRegistry<N, E> {
+    /// Map the value of the nodes in the registry.
+    pub fn map_nodes<M>(&self, mut f: impl FnMut(N) -> M) -> SerializedRegistry<M, E> {
+        SerializedRegistry {
+            nodes: self.nodes.map(|_, v| v.clone().map_value(&mut f)),
+        }
+    }
 }
 
 impl<N, E> Registry<N, E> {
-    fn to_serialized(&self) -> SerializedRegistry<N, E>
+    /// Convert a [`Registry`] object to its serializable format.
+    pub fn to_serialized(&self) -> SerializedRegistry<N, E>
     where
         N: Clone,
         E: Clone,
@@ -93,7 +104,12 @@ impl<N, E> Registry<N, E> {
         SerializedRegistry { nodes }
     }
 
-    fn from_serialized(
+    /// Convert a serializable representation of a [`Registry`] object back to a
+    /// [`Registry`] object.
+    ///
+    /// Return the deserialised [`Registry`] object alongside the deserialised
+    /// nodes. The registry only contains weak references to the nodes.
+    pub fn from_serialized(
         serialized: SerializedRegistry<N, E>,
     ) -> (Self, SecondaryMap<NodeId, RelRc<N, E>>) {
         let nodes_set = serialized.nodes.map(|_, _| ());
