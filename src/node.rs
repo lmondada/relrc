@@ -11,7 +11,7 @@ use std::{
 
 use derive_more::From;
 use derive_where::derive_where;
-use fxhash::FxHashSet;
+use rustc_hash::FxHashSet;
 
 use crate::Registry;
 use crate::{edge::InnerEdgeData, Edge, WeakEdge};

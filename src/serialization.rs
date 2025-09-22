@@ -3,8 +3,8 @@
 use std::{cell::RefCell, collections::BTreeSet, rc::Rc};
 
 use derive_more::{From, Into};
-use fxhash::FxHashSet;
 use itertools::Itertools;
+use rustc_hash::FxHashSet;
 use slotmap_fork_lmondada::{SecondaryMap, SlotMap};
 
 use crate::{HistoryGraph, NodeId, Registry, RelRc};
